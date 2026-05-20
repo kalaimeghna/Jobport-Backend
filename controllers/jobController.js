@@ -1,65 +1,121 @@
 import Job from "../models/Job.js";
 
+import User from "../models/User.js";
 
-export const createJob = async(req, res)=>{
-    try{
-        const{
-            title,
-            description,
-            requirements,
-            location,
-            salary,
-}=req.body;
-//validation
-if(!title || !description || !requirements || !location || !salary){
-    return res.status(400).json({
-        success:false,
-        message:"please fill all required filelds",
 
-    });
-}
-//create job
-const job = await Job.create({
-    title,
-    description,
-    requirements,
-    location,
-    salary,
-    createdBy:req.user._id,
-});
-res.status(201).json({
-    success:true,
-    job,
-});
-    }catch(error){
-        res.status(500).json({
-            success:false,
-            message:error.message,
-});
-    }
-};
-//get Jobs
-export const getJobs = async (req, res)=>{
-    try{
-        const jobs = await Job.find().populate(
-  "createdBy",
-  "name email"
-);
-        res.status(200).json({
-            success:true,
-            jobs,
-        }); 
-    }catch(error){
-        res.status(500).json({
-            success:false,
-            message:error.message,
+// ================= CREATE JOB =================
+
+export const createJob =
+  async (req, res) => {
+
+    try {
+
+      const {
+        title,
+        description,
+        requirements,
+        location,
+        salary,
+      } = req.body;
+
+
+      const job =
+        await Job.create({
+
+          title,
+
+          description,
+
+          requirements,
+
+          location,
+
+          salary,
+
+          createdBy:
+            req.user._id,
+
         });
+
+
+      res.status(201).json({
+
+        success: true,
+
+        message:
+          "Job created successfully",
+
+        job,
+
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+
+      });
+
     }
 };
+
+
+// ================= GET ALL JOBS =================
+
+export const getJobs =
+  async (req, res) => {
+
+    try {
+
+      const jobs =
+        await Job.find()
+
+          .populate(
+            "createdBy",
+            "name email"
+          )
+
+          .sort({
+            createdAt: -1,
+          });
+
+
+      res.status(200).json({
+
+        success: true,
+
+        jobs,
+
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Server Error",
+
+      });
+
+    }
+};
+
+
 // ================= GET SINGLE JOB =================
 
-export const getSingleJob =
+export const getJobById =
   async (req, res) => {
+
     try {
 
       const job =
@@ -70,31 +126,51 @@ export const getSingleJob =
           "name email"
         );
 
+
       if (!job) {
+
         return res.status(404).json({
+
           success: false,
-          message: "Job not found",
+
+          message:
+            "Job not found",
+
         });
+
       }
 
+
       res.status(200).json({
+
         success: true,
+
         job,
+
       });
 
     } catch (error) {
 
+      console.log(error);
+
       res.status(500).json({
+
         success: false,
-        message: error.message,
+
+        message:
+          "Server Error",
+
       });
 
     }
-  };
-  // ================= UPDATE JOB =================
+};
+
+
+// ================= UPDATE JOB =================
 
 export const updateJob =
   async (req, res) => {
+
     try {
 
       const job =
@@ -102,65 +178,86 @@ export const updateJob =
           req.params.id
         );
 
+
       if (!job) {
+
         return res.status(404).json({
+
           success: false,
-          message: "Job not found",
+
+          message:
+            "Job not found",
+
         });
+
       }
 
-      // Check owner
+
+      // CHECK OWNER
+
       if (
         job.createdBy.toString() !==
         req.user._id.toString()
       ) {
-        return res.status(403).json({
+
+        return res.status(401).json({
+
           success: false,
+
           message:
             "Not authorized",
+
         });
+
       }
 
-      job.title =
-        req.body.title || job.title;
-
-      job.description =
-        req.body.description ||
-        job.description;
-
-      job.requirements =
-        req.body.requirements ||
-        job.requirements;
-
-      job.location =
-        req.body.location ||
-        job.location;
-
-      job.salary =
-        req.body.salary ||
-        job.salary;
 
       const updatedJob =
-        await job.save();
+        await Job.findByIdAndUpdate(
+
+          req.params.id,
+
+          req.body,
+
+          {
+            new: true,
+          }
+        );
+
 
       res.status(200).json({
+
         success: true,
-        updatedJob,
+
+        message:
+          "Job updated successfully",
+
+        job: updatedJob,
+
       });
 
     } catch (error) {
 
+      console.log(error);
+
       res.status(500).json({
+
         success: false,
-        message: error.message,
+
+        message:
+          "Server Error",
+
       });
 
     }
-  };
-  // ================= DELETE JOB =================
+};
+
+
+// ================= DELETE JOB =================
 
 export const deleteJob =
   async (req, res) => {
+
     try {
 
       const job =
@@ -168,70 +265,125 @@ export const deleteJob =
           req.params.id
         );
 
+
       if (!job) {
+
         return res.status(404).json({
+
           success: false,
-          message: "Job not found",
+
+          message:
+            "Job not found",
+
         });
+
       }
 
-      // Check owner
+
+      // CHECK OWNER
+
       if (
         job.createdBy.toString() !==
         req.user._id.toString()
       ) {
-        return res.status(403).json({
+
+        return res.status(401).json({
+
           success: false,
+
           message:
             "Not authorized",
+
         });
+
       }
+
 
       await job.deleteOne();
 
+
       res.status(200).json({
+
         success: true,
+
         message:
           "Job deleted successfully",
+
       });
 
     } catch (error) {
 
+      console.log(error);
+
       res.status(500).json({
+
         success: false,
-        message: error.message,
+
+        message:
+          "Server Error",
+
       });
 
     }
-  };
-  // ================= RECOMMENDED JOBS =================
+};
+
+
+// ================= RECOMMENDED JOBS =================
+
 export const getRecommendedJobs =
-async (req, res) => {
-  try {
+  async (req, res) => {
 
-    // Get logged-in user
-    const user = req.user;
+    try {
 
-    // Find jobs matching skills
-    const jobs = await Job.find({
-      requirements: {
-        $regex:
-          user.skills.join("|"),
-        $options: "i",
-      },
-    });
+      const userSkills =
+        req.user.skills || [];
 
-    res.status(200).json({
-      success: true,
-      recommendedJobs: jobs,
-    });
+      const jobs =
+        await Job.find();
 
-  } catch (error) {
+      const recommendedJobs =
+        jobs.filter((job) => {
 
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+          const requirements =
+            Array.isArray(
+              job.requirements
+            )
 
-  }
+              ? job.requirements
+
+              : String(
+                  job.requirements
+                ).split(",");
+
+          return requirements.some(
+            (skill) =>
+
+              userSkills.includes(
+                skill.trim()
+              )
+          );
+        });
+
+      res.status(200).json({
+
+        success: true,
+
+        jobs: recommendedJobs,
+
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch recommended jobs",
+
+      });
+
+    }
 };

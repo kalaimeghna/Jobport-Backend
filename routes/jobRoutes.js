@@ -3,22 +3,23 @@ import express from "express";
 import {
   createJob,
   getJobs,
-  getSingleJob,
+  getJobById,
   updateJob,
   deleteJob,
   getRecommendedJobs,
 } from "../controllers/jobController.js";
 
-import { protect }
-from "../middleware/authMiddleware.js";
+import {
+  protect,
+  employerOnly,
+} from "../middleware/authMiddleware.js";
 
-import employerOnly
-from "../middleware/roleMiddleware.js";
-
-const router = express.Router();
+const router =
+  express.Router();
 
 
-// CREATE JOB
+// ================= CREATE JOB =================
+
 router.post(
   "/",
   protect,
@@ -27,23 +28,33 @@ router.post(
 );
 
 
-// GET ALL JOBS
-router.get("/", getJobs);
+// ================= GET ALL JOBS =================
 
-
-// JOB RECOMMENDATIONS
 router.get(
-  "/recommendations",
+  "/",
+  getJobs
+);
+
+
+// ================= RECOMMENDED JOBS =================
+
+router.get(
+  "/recommended",
   protect,
   getRecommendedJobs
 );
 
 
-// GET SINGLE JOB
-router.get("/:id", getSingleJob);
+// ================= GET SINGLE JOB =================
+
+router.get(
+  "/:id",
+  getJobById
+);
 
 
-// UPDATE JOB
+// ================= UPDATE JOB =================
+
 router.put(
   "/:id",
   protect,
@@ -52,7 +63,8 @@ router.put(
 );
 
 
-// DELETE JOB
+// ================= DELETE JOB =================
+
 router.delete(
   "/:id",
   protect,

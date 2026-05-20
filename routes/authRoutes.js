@@ -1,47 +1,90 @@
 import express from "express";
 
 import {
+
   registerUser,
+
   loginUser,
+
+  getProfile,
+
+  updateProfile,
+
   forgotPassword,
+
+  resetPassword,
+
   changePassword,
- 
+
 } from "../controllers/authController.js";
 
-import { protect } from "../middleware/authMiddleware.js";
+import {
 
-const router = express.Router();
+  protect,
+
+} from "../middleware/authMiddleware.js";
+
+const router =
+  express.Router();
 
 
-// Register
+// ================= REGISTER =================
+
 router.post(
   "/register",
   registerUser
 );
 
 
-// Login
+// ================= LOGIN =================
+
 router.post(
   "/login",
   loginUser
 );
 
 
-// Forgot Password
+// ================= GET PROFILE =================
+
+router.get(
+  "/profile",
+  protect,
+  getProfile
+);
+
+
+// ================= UPDATE PROFILE =================
+
+router.put(
+  "/profile",
+  protect,
+  updateProfile
+);
+
+
+// ================= FORGOT PASSWORD =================
+
 router.post(
   "/forgot-password",
   forgotPassword
 );
 
 
-// Change Password
+
+// ================= RESET PASSWORD =================
+
+router.put(
+  "/reset-password/:token",
+  resetPassword
+);
+
+// ================= CHANGE PASSWORD =================
+
 router.put(
   "/change-password",
   protect,
   changePassword
 );
-
-
 
 
 export default router;

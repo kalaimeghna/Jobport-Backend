@@ -1,48 +1,106 @@
 import express from "express";
 
 import {
+
   applyJob,
+
   getMyApplications,
+
   getJobApplications,
+
   updateApplicationStatus,
+
+  getEmployerApplications,
+
 } from "../controllers/applicationController.js";
 
 import {
+
   protect,
+
+  jobseekerOnly,
+
 } from "../middleware/authMiddleware.js";
 
-const router = express.Router();
+import employerOnly
+from "../middleware/roleMiddleware.js";
+
+const router =
+  express.Router();
 
 
-// APPLY JOB
+// ================= APPLY JOB =================
+
 router.post(
-  "/:jobId",
+
+  "/apply/:jobId",
+
   protect,
+
+  jobseekerOnly,
+
   applyJob
+
 );
 
 
-// GET MY APPLICATIONS
+// ================= GET MY APPLICATIONS =================
+
 router.get(
-  "/my-applications",
+
+  "/my",
+
   protect,
+
+  jobseekerOnly,
+
   getMyApplications
+
 );
 
 
-// GET APPLICATIONS FOR ONE JOB
+// ================= EMPLOYER VIEW ALL APPLICATIONS =================
+
 router.get(
-  "/job/:jobId",
+
+  "/employer",
+
   protect,
-  getJobApplications
+
+  employerOnly,
+
+  getEmployerApplications
+
 );
 
 
-// UPDATE APPLICATION STATUS
-router.put(
-  "/:id/status",
+// ================= EMPLOYER VIEW JOB APPLICANTS =================
+
+router.get(
+
+  "/job/:jobId",
+
   protect,
+
+  employerOnly,
+
+  getJobApplications
+
+);
+
+
+// ================= UPDATE APPLICATION STATUS =================
+
+router.put(
+
+  "/status/:id",
+
+  protect,
+
+  employerOnly,
+
   updateApplicationStatus
+
 );
 
 export default router;

@@ -1,34 +1,93 @@
 import multer from "multer";
 
 
-// Storage
-const storage = multer.diskStorage({});
+// ================= STORAGE =================
 
-//File Filter
-const fileFilter = (req, file, cb) => {
-    const allowedTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocesssigml.document",
-    ];
-    if (allowedTypes.includes(file.mimetype)
-    ) {
+const storage =
+  multer.diskStorage({
+
+    destination:
+      function (
+        req,
+        file,
+        cb
+      ) {
+
         cb(
-            new Error(
-                "only PDF ,DOC, and  DOCX files are allowed"
-            ),
-            false
+          null,
+          "uploads/"
         );
-    }
-};
+      },
 
-//Multer upload config 
-const upload = multer({
+    filename:
+      function (
+        req,
+        file,
+        cb
+      ) {
+
+        cb(
+
+          null,
+
+          Date.now() +
+            "-" +
+            file.originalname
+        );
+      },
+  });
+
+
+// ================= FILE FILTER =================
+
+const fileFilter =
+  (req, file, cb) => {
+
+    const allowedTypes = [
+
+      "application/pdf",
+
+      "application/msword",
+
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (
+      allowedTypes.includes(
+        file.mimetype
+      )
+    ) {
+
+      cb(null, true);
+
+    } else {
+
+      cb(
+
+        new Error(
+          "Only PDF DOC DOCX allowed"
+        ),
+
+        false
+      );
+    }
+  };
+
+
+// ================= MULTER =================
+
+const upload =
+  multer({
+
     storage,
+
     fileFilter,
+
     limits: {
-        fileSize: 5 * 1024 * 1024,//5MB 
+
+      fileSize:
+        5 * 1024 * 1024,
     },
-});
+  });
 
 export default upload;

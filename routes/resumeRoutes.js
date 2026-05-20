@@ -6,16 +6,19 @@ import {
   deleteResume,
 } from "../controllers/resumeController.js";
 
-import { protect }
-from "../middleware/authMiddleware.js";
+import {
+  protect,
+} from "../middleware/authMiddleware.js";
 
 import upload
 from "../middleware/uploadMiddleware.js";
 
-const router = express.Router();
+const router =
+  express.Router();
 
 
-// Upload Resume
+// ================= UPLOAD RESUME =================
+
 router.post(
   "/upload",
   protect,
@@ -24,15 +27,17 @@ router.post(
 );
 
 
-// Get My Resumes
+// ================= GET MY RESUMES =================
+
 router.get(
-  "/",
+  "/my",
   protect,
   getResume
 );
 
 
-// Delete Resume
+// ================= DELETE RESUME =================
+
 router.delete(
   "/:id",
   protect,

@@ -10,6 +10,10 @@ import companyRoutes from "./routes/companyRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import {
+  notFound,
+  errorHandler,
+} from "./middleware/errorMiddleware.js";
 
 dotenv.config();
 
@@ -44,6 +48,12 @@ app.get("/", (req, res) => {
   res.send("API Running");
 
 });
+// ERROR MIDDLEWARE
+
+app.use(notFound);
+
+app.use(errorHandler);
+
 
 
 // PORT

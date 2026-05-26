@@ -165,7 +165,7 @@ export const getEmployerApplications =
 
         .populate(
           "applicant",
-          "name email skills experience"
+          "name email skills experience resumeUrl"
         )
 
         .populate(

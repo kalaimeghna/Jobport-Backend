@@ -1,5 +1,3 @@
-
-
 import Application from "../models/Application.js";
 import Job from "../models/Job.js";
 import Resume from "../models/Resume.js";
@@ -7,96 +5,96 @@ import Resume from "../models/Resume.js";
 
 // ================= APPLY JOB =================
 
-export const applyJob = async (req, res) => {
+export const applyJob =
+  async (req, res) => {
 
-  try {
+    try {
 
-    const job =
-      await Job.findById(
-        req.params.jobId
-      );
+      const job =
+        await Job.findById(
+          req.params.jobId
+        );
 
-    if (!job) {
+      if (!job) {
 
-      return res.status(404).json({
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Job not found",
+
+        });
+      }
+
+
+      // CHECK ALREADY APPLIED
+
+      const alreadyApplied =
+        await Application.findOne({
+
+          applicant:
+            req.user._id,
+
+          job:
+            req.params.jobId,
+
+        });
+
+      if (alreadyApplied) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Already applied",
+
+        });
+      }
+
+
+      // CREATE APPLICATION
+
+      const application =
+        await Application.create({
+
+          applicant:
+            req.user._id,
+
+          job:
+            req.params.jobId,
+
+          status:
+            "Applied",
+
+        });
+
+      res.status(201).json({
+
+        success: true,
+
+        message:
+          "Job applied successfully",
+
+        application,
+
+      });
+
+    } catch (error) {
+
+      console.log(error);
+
+      res.status(500).json({
 
         success: false,
 
         message:
-          "Job not found",
+          error.message,
 
       });
-
     }
-
-
-    // CHECK ALREADY APPLIED
-
-    const alreadyApplied =
-      await Application.findOne({
-
-        applicant:
-          req.user._id,
-
-        job:
-          req.params.jobId,
-
-      });
-
-    if (alreadyApplied) {
-
-      return res.status(400).json({
-
-        success: false,
-
-        message:
-          "Already applied",
-
-      });
-
-    }
-
-
-    // CREATE APPLICATION
-
-    const application =
-      await Application.create({
-
-        applicant:
-          req.user._id,
-
-        job:
-          req.params.jobId,
-
-        status:
-          "Applied",
-
-      });
-
-    res.status(201).json({
-
-      success: true,
-
-      message:
-        "Job applied successfully",
-
-      application,
-
-    });
-
-  } catch (error) {
-
-    res.status(500).json({
-
-      success: false,
-
-      message:
-        error.message,
-
-    });
-
-  }
-};
+  };
 
 
 // ================= GET MY APPLICATIONS =================
@@ -124,6 +122,8 @@ export const getMyApplications =
 
     } catch (error) {
 
+      console.log(error);
+
       res.status(500).json({
 
         success: false,
@@ -132,20 +132,23 @@ export const getMyApplications =
           error.message,
 
       });
-
     }
   };
-  //getEmployerApplications
+
+
+// ================= GET EMPLOYER APPLICATIONS =================
+
 export const getEmployerApplications =
   async (req, res) => {
 
     try {
 
-      // FIND JOBS CREATED BY EMPLOYER
-
       const jobs =
         await Job.find({
-          createdBy: req.user._id,
+
+          createdBy:
+            req.user._id,
+
         });
 
       const jobIds =
@@ -153,26 +156,30 @@ export const getEmployerApplications =
           (job) => job._id
         );
 
-
-      // FIND APPLICATIONS
-
       const applications =
         await Application.find({
+
           job: {
             $in: jobIds,
           },
+
         })
 
         .populate(
+
           "applicant",
-          "name email skills experience resumeUrl"
+
+          "name email phone skills experience"
+
         )
 
         .populate(
-          "job",
-          "title location salary"
-        );
 
+          "job",
+
+          "title location salary"
+
+        );
 
       res.status(200).json({
 
@@ -184,6 +191,8 @@ export const getEmployerApplications =
 
     } catch (error) {
 
+      console.log(error);
+
       res.status(500).json({
 
         success: false,
@@ -194,6 +203,7 @@ export const getEmployerApplications =
       });
     }
   };
+
 
 // ================= GET JOB APPLICATIONS =================
 
@@ -217,14 +227,17 @@ export const getJobApplications =
 
         });
 
-
-      // ADD RESUME URL
+      // ================= ADD RESUME URL =================
 
       const updatedApplications =
         await Promise.all(
 
           applications.map(
             async (app) => {
+
+              if (!app.applicant) {
+                return null;
+              }
 
               const resume =
                 await Resume.findOne({
@@ -256,16 +269,21 @@ export const getJobApplications =
           )
         );
 
+      const filteredApplications =
+        updatedApplications.filter(Boolean);
+
       res.status(200).json({
 
         success: true,
 
         applications:
-          updatedApplications,
+          filteredApplications,
 
       });
 
     } catch (error) {
+
+      console.log(error);
 
       res.status(500).json({
 
@@ -275,7 +293,6 @@ export const getJobApplications =
           error.message,
 
       });
-
     }
   };
 
@@ -302,7 +319,6 @@ export const updateApplicationStatus =
             "Application not found",
 
         });
-
       }
 
       application.status =
@@ -323,6 +339,8 @@ export const updateApplicationStatus =
 
     } catch (error) {
 
+      console.log(error);
+
       res.status(500).json({
 
         success: false,
@@ -331,6 +349,5 @@ export const updateApplicationStatus =
           error.message,
 
       });
-
     }
   };

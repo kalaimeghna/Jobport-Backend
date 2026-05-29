@@ -59,9 +59,9 @@ export const registerUser = async (req, res) => {
       skills: skills
         ? skills.split(",").map((s) => s.trim())
         : [],
-      experience: experience || [],
-      education: education || [],
-      profilePicture: "",
+      experience: experience || "",
+      education: education || "",
+      profilePic: "",
     });
 
     const safeUser = await User.findById(user._id).select("-password");
@@ -84,7 +84,7 @@ export const registerUser = async (req, res) => {
 // ================= LOGIN USER =================
 export const loginUser = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -108,14 +108,6 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
-      });
-    }
-
-    // ROLE CHECK (FIXED)
-    if (role && role !== user.role) {
-      return res.status(403).json({
-        success: false,
-        message: "Role mismatch",
       });
     }
 
@@ -177,7 +169,6 @@ export const updateProfile = async (req, res) => {
     user.email = req.body.email || user.email;
     user.phone = req.body.phone || user.phone;
 
-    // skills handling
     if (req.body.skills) {
       user.skills = Array.isArray(req.body.skills)
         ? req.body.skills
@@ -187,9 +178,8 @@ export const updateProfile = async (req, res) => {
     user.experience = req.body.experience || user.experience;
     user.education = req.body.education || user.education;
 
-    // profile picture (URL based for now)
-    user.profilePicture =
-      req.body.profilePicture || user.profilePicture;
+    // FIXED FIELD NAME
+    user.profilePic = req.body.profilePic || user.profilePic;
 
     await user.save();
 

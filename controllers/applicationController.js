@@ -6,7 +6,21 @@ export const applyForJob = async (req, res) => {
   try {
     const jobId = req.params.jobId;
 
-    // check job exists
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // ❌ ONLY JOBSEEKER CAN APPLY
+    if (req.user.role !== "jobseeker") {
+      return res.status(403).json({
+        success: false,
+        message: "Only jobseekers can apply for jobs",
+      });
+    }
+
     const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({
@@ -15,7 +29,6 @@ export const applyForJob = async (req, res) => {
       });
     }
 
-    // prevent duplicate application
     const alreadyApplied = await Application.findOne({
       job: jobId,
       user: req.user._id,
@@ -24,7 +37,7 @@ export const applyForJob = async (req, res) => {
     if (alreadyApplied) {
       return res.status(400).json({
         success: false,
-        message: "You have already applied for this job",
+        message: "Already applied",
       });
     }
 
@@ -48,7 +61,7 @@ export const applyForJob = async (req, res) => {
   }
 };
 
-// ================= GET MY APPLICATIONS (JOB SEEKER) =================
+// ================= GET MY APPLICATIONS =================
 export const getMyApplications = async (req, res) => {
   try {
     const applications = await Application.find({
@@ -70,10 +83,27 @@ export const getMyApplications = async (req, res) => {
   }
 };
 
-// ================= GET APPLICATIONS FOR EMPLOYER =================
+// ================= GET JOB APPLICATIONS (EMPLOYER) =================
 export const getJobApplications = async (req, res) => {
   try {
     const jobId = req.params.jobId;
+
+    const job = await Job.findById(jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
+    }
+
+    // ❌ ONLY JOB OWNER CAN VIEW
+    if (job.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
 
     const applications = await Application.find({
       job: jobId,
@@ -101,7 +131,6 @@ export const updateApplicationStatus = async (req, res) => {
     const { status } = req.body;
     const applicationId = req.params.id;
 
-    // validate status
     const allowedStatuses = [
       "pending",
       "interviewed",
@@ -116,12 +145,24 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    const application = await Application.findById(applicationId);
+    const application = await Application.findById(applicationId)
+      .populate("job");
 
     if (!application) {
       return res.status(404).json({
         success: false,
         message: "Application not found",
+      });
+    }
+
+    // ❌ ONLY JOB OWNER CAN UPDATE
+    if (
+      application.job.createdBy.toString() !==
+      req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized",
       });
     }
 
@@ -150,13 +191,17 @@ export const getEmployerApplications = async (req, res) => {
     const applications = await Application.find()
       .populate({
         path: "job",
-        match: { employer: employerId },
+        populate: {
+          path: "company",
+        },
       })
-      .populate("user", "name email");
+      .populate("user", "name email role");
 
-    // remove non-matching jobs
+    // filter only employer's jobs
     const filtered = applications.filter(
-      (app) => app.job !== null
+      (app) =>
+        app.job &&
+        app.job.createdBy.toString() === employerId.toString()
     );
 
     res.status(200).json({

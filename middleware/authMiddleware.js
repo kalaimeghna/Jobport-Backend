@@ -9,13 +9,24 @@ export const protect = async (req, res, next) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "No token",
+        message: "No token provided",
       });
     }
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message:
+          err.name === "TokenExpiredError"
+            ? "Token expired"
+            : "Invalid token",
+      });
+    }
 
     const user = await User.findById(decoded.id).select("-password");
 
@@ -30,24 +41,17 @@ export const protect = async (req, res, next) => {
     next();
 
   } catch (error) {
-    console.log("AUTH ERROR:", error.message);
+    console.log("AUTH ERROR:", error);
 
-    return res.status(401).json({
+    return res.status(500).json({
       success: false,
-      message: "Not authorized",
+      message: "Authentication failed",
     });
   }
 };
 
 // ================= EMPLOYER ONLY =================
 export const employerOnly = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized",
-    });
-  }
-
   if (req.user.role !== "employer") {
     return res.status(403).json({
       success: false,
@@ -60,13 +64,6 @@ export const employerOnly = (req, res, next) => {
 
 // ================= JOBSEEKER ONLY =================
 export const jobseekerOnly = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized",
-    });
-  }
-
   if (req.user.role !== "jobseeker") {
     return res.status(403).json({
       success: false,

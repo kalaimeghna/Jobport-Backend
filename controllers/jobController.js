@@ -6,6 +6,22 @@ export const createJob = async (req, res) => {
   try {
     const { title, description, location, salary, company } = req.body;
 
+    // AUTH CHECK
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // 🔥 ROLE CHECK (FIX)
+    if (req.user.role !== "employer") {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can create jobs",
+      });
+    }
+
     if (!title || !description || !location || !salary || !company) {
       return res.status(400).json({
         success: false,
@@ -38,7 +54,10 @@ export const createJob = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -49,10 +68,16 @@ export const getJobs = async (req, res) => {
       .populate("company", "companyName logo location")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, jobs });
+    res.status(200).json({
+      success: true,
+      jobs,
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -70,23 +95,43 @@ export const getJobById = async (req, res) => {
       });
     }
 
-    res.json({ success: true, job });
+    res.status(200).json({
+      success: true,
+      job,
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
 // ================= MY JOBS =================
 export const getMyJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ createdBy: req.user._id })
-      .populate("company");
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
 
-    res.json({ success: true, jobs });
+    const jobs = await Job.find({ createdBy: req.user._id })
+      .populate("company")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      jobs,
+    });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -96,21 +141,46 @@ export const updateJob = async (req, res) => {
     const job = await Job.findById(req.params.id);
 
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
     }
 
-    if (job.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
+    if (!req.user || job.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized",
+      });
     }
 
-    Object.assign(job, req.body);
+    // SAFE UPDATE (REMOVE COMPANY EDIT)
+    const allowedFields = [
+      "title",
+      "description",
+      "location",
+      "salary",
+    ];
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        job[field] = req.body[field];
+      }
+    });
 
     const updated = await job.save();
 
-    res.json({ success: true, job: updated });
+    res.status(200).json({
+      success: true,
+      message: "Job updated successfully",
+      job: updated,
+    });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -120,23 +190,35 @@ export const deleteJob = async (req, res) => {
     const job = await Job.findById(req.params.id);
 
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
     }
 
-    if (job.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
+    if (!req.user || job.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized",
+      });
     }
 
     await job.deleteOne();
 
-    res.json({ success: true, message: "Job deleted" });
+    res.status(200).json({
+      success: true,
+      message: "Job deleted successfully",
+    });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-// ================= RECOMMENDED JOBS (FIXED ERROR) =================
+// ================= RECOMMENDED JOBS =================
 export const getRecommendedJobs = async (req, res) => {
   try {
     const jobs = await Job.find()

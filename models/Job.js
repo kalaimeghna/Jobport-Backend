@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const jobSchema = new mongoose.Schema(
   {
+    // ================= JOB BASICS =================
     title: {
       type: String,
       required: true,
@@ -23,11 +24,13 @@ const jobSchema = new mongoose.Schema(
       required: true,
     },
 
+    // KEEP STRING (safe for salary ranges like "3-5 LPA")
     salary: {
       type: String,
       required: true,
     },
 
+    // ================= RELATIONS =================
     company: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
@@ -40,7 +43,10 @@ const jobSchema = new mongoose.Schema(
       required: true,
     },
   },
-  { timestamps: true }
+
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model("Job", jobSchema);

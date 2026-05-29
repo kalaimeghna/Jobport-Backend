@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    // ================= BASIC INFO =================
     name: {
       type: String,
       required: true,
@@ -23,14 +22,12 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
     },
 
-    // ================= ROLE (IMPORTANT FIX) =================
     role: {
       type: String,
       enum: ["jobseeker", "employer"],
       default: "jobseeker",
     },
 
-    // ================= PROFILE INFO =================
     phone: {
       type: String,
       default: "",
@@ -51,12 +48,12 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    profilePicture: {
+    // ✅ FIXED FIELD NAME
+    profilePic: {
       type: String,
       default: "",
     },
 
-    // ================= PASSWORD RESET =================
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },

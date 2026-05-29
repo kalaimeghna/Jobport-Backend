@@ -22,14 +22,17 @@ export const createCompany = async (req, res) => {
       });
     }
 
-    if (!companyName || !description || !location) {
+    if (!companyName || !description || !location || !industry) {
       return res.status(400).json({
         success: false,
-        message: "Company name, description and location are required",
+        message: "Required fields missing",
       });
     }
 
-    const existing = await Company.findOne({ companyName });
+    // CASE-INSENSITIVE DUPLICATE CHECK
+    const existing = await Company.findOne({
+      companyName: { $regex: `^${companyName}$`, $options: "i" },
+    });
 
     if (existing) {
       return res.status(400).json({
@@ -72,7 +75,7 @@ export const getCompanies = async (req, res) => {
     const companies = await Company.find({
       companyName: { $regex: keyword, $options: "i" },
     })
-      .populate("createdBy", "name email role")
+      .populate("createdBy", "name email role phone profilePic")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -91,10 +94,8 @@ export const getCompanies = async (req, res) => {
 // ================= GET SINGLE COMPANY =================
 export const getCompanyById = async (req, res) => {
   try {
-    const company = await Company.findById(req.params.id).populate(
-      "createdBy",
-      "name email role"
-    );
+    const company = await Company.findById(req.params.id)
+      .populate("createdBy", "name email role phone profilePic");
 
     if (!company) {
       return res.status(404).json({
@@ -103,13 +104,9 @@ export const getCompanyById = async (req, res) => {
       });
     }
 
-    // FIX: flexible job mapping (handles different schemas)
+    // 🔥 FIXED: only correct relation
     const jobs = await Job.find({
-      $or: [
-        { company: company._id },
-        { createdBy: company.createdBy?._id },
-        { employer: company.createdBy?._id },
-      ],
+      company: company._id,
     }).sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -148,7 +145,6 @@ export const updateCompany = async (req, res) => {
       });
     }
 
-    // SAFE UPDATE (no Object.assign)
     const allowedFields = [
       "companyName",
       "description",
@@ -204,7 +200,9 @@ export const deleteCompany = async (req, res) => {
       });
     }
 
+    // delete related jobs
     await Job.deleteMany({ company: company._id });
+
     await company.deleteOne();
 
     res.status(200).json({

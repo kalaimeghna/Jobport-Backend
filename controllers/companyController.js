@@ -15,6 +15,7 @@ export const createCompany = async (req, res) => {
       foundedYear,
     } = req.body;
 
+    // 🔐 CHECK AUTH
     if (!req.user || !req.user._id) {
       return res.status(401).json({
         success: false,
@@ -22,6 +23,7 @@ export const createCompany = async (req, res) => {
       });
     }
 
+    // ❌ REQUIRED FIELDS CHECK
     if (!companyName || !description || !location || !industry) {
       return res.status(400).json({
         success: false,
@@ -29,7 +31,7 @@ export const createCompany = async (req, res) => {
       });
     }
 
-    // CASE-INSENSITIVE DUPLICATE CHECK
+    // 🔍 DUPLICATE CHECK
     const existing = await Company.findOne({
       companyName: { $regex: `^${companyName}$`, $options: "i" },
     });
@@ -41,15 +43,16 @@ export const createCompany = async (req, res) => {
       });
     }
 
+    // 🆕 CREATE COMPANY
     const company = await Company.create({
       companyName,
       description,
       location,
-      logo,
-      website,
+      logo: logo || "",
+      website: website || "",
       industry,
-      companySize,
-      foundedYear,
+      companySize: companySize || "",
+      foundedYear: foundedYear || "",
       createdBy: req.user._id,
     });
 
@@ -75,7 +78,7 @@ export const getCompanies = async (req, res) => {
     const companies = await Company.find({
       companyName: { $regex: keyword, $options: "i" },
     })
-      .populate("createdBy", "name email role phone profilePic")
+      .populate("createdBy", "name email role")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -95,7 +98,7 @@ export const getCompanies = async (req, res) => {
 export const getCompanyById = async (req, res) => {
   try {
     const company = await Company.findById(req.params.id)
-      .populate("createdBy", "name email role phone profilePic");
+      .populate("createdBy", "name email role");
 
     if (!company) {
       return res.status(404).json({
@@ -104,7 +107,6 @@ export const getCompanyById = async (req, res) => {
       });
     }
 
-    // 🔥 FIXED: only correct relation
     const jobs = await Job.find({
       company: company._id,
     }).sort({ createdAt: -1 });
@@ -135,17 +137,14 @@ export const updateCompany = async (req, res) => {
       });
     }
 
-    if (
-      !req.user ||
-      company.createdBy?.toString() !== req.user._id?.toString()
-    ) {
+    if (company.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
       });
     }
 
-    const allowedFields = [
+    const fields = [
       "companyName",
       "description",
       "location",
@@ -156,7 +155,7 @@ export const updateCompany = async (req, res) => {
       "foundedYear",
     ];
 
-    allowedFields.forEach((field) => {
+    fields.forEach((field) => {
       if (req.body[field] !== undefined) {
         company[field] = req.body[field];
       }
@@ -190,10 +189,7 @@ export const deleteCompany = async (req, res) => {
       });
     }
 
-    if (
-      !req.user ||
-      company.createdBy?.toString() !== req.user._id?.toString()
-    ) {
+    if (company.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",

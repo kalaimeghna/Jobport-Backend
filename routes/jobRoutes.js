@@ -4,72 +4,29 @@ import {
   createJob,
   getJobs,
   getJobById,
+  getMyJobs,
   updateJob,
   deleteJob,
   getRecommendedJobs,
 } from "../controllers/jobController.js";
 
-import {
-  protect,
-  employerOnly,
-} from "../middleware/authMiddleware.js";
+import { protect, employerOnly } from "../middleware/authMiddleware.js";
 
-const router =
-  express.Router();
+const router = express.Router();
 
+// ================= JOB ROUTES =================
+router.post("/", protect, employerOnly, createJob);
 
-// ================= CREATE JOB =================
+router.get("/", getJobs);
 
-router.post(
-  "/",
-  protect,
-  employerOnly,
-  createJob
-);
+router.get("/my", protect, employerOnly, getMyJobs);
 
+router.get("/recommended", getRecommendedJobs);
 
-// ================= GET ALL JOBS =================
+router.get("/:id", getJobById);
 
-router.get(
-  "/",
-  getJobs
-);
+router.put("/:id", protect, employerOnly, updateJob);
 
-
-// ================= RECOMMENDED JOBS =================
-
-router.get(
-  "/recommended",
-  protect,
-  getRecommendedJobs
-);
-
-
-// ================= GET SINGLE JOB =================
-
-router.get(
-  "/:id",
-  getJobById
-);
-
-
-// ================= UPDATE JOB =================
-
-router.put(
-  "/:id",
-  protect,
-  employerOnly,
-  updateJob
-);
-
-
-// ================= DELETE JOB =================
-
-router.delete(
-  "/:id",
-  protect,
-  employerOnly,
-  deleteJob
-);
+router.delete("/:id", protect, employerOnly, deleteJob);
 
 export default router;

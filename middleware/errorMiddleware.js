@@ -1,51 +1,23 @@
-const notFound =
-  (req, res, next) => {
-
-    const error =
-      new Error(
-        `Not Found - ${req.originalUrl}`
-      );
-
-    res.status(404);
-
-    next(error);
-  };
-
-
-const errorHandler =
-  (err, req, res, next) => {
-
-    const statusCode =
-
-      res.statusCode === 200
-
-        ? 500
-
-        : res.statusCode;
-
-    res.status(statusCode).json({
-
-      success: false,
-
-      message:
-        err.message ||
-        "Server Error",
-
-      stack:
-
-        process.env.NODE_ENV ===
-        "production"
-
-          ? null
-
-          : err.stack,
-    });
-  };
-
-
-export {
-
-  notFound,
-
-  errorHandler,
+const notFound = (req, res, next) => {
+  const error = new Error(`Not Found - ${req.originalUrl}`);
+  error.statusCode = 404;
+  return next(error);
 };
+
+// ================= ERROR HANDLER =================
+const errorHandler = (err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+
+  const response = {
+    success: false,
+    message: err.message || "Server Error",
+  };
+
+  if (process.env.NODE_ENV !== "production") {
+    response.stack = err.stack;
+  }
+
+  res.status(statusCode).json(response);
+};
+
+export { notFound, errorHandler };

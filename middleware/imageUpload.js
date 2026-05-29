@@ -1,7 +1,7 @@
 import multer from "multer";
 import fs from "fs";
 
-// ================= ENSURE UPLOAD DIR =================
+// Ensure upload folder exists
 const uploadPath = "uploads/";
 
 if (!fs.existsSync(uploadPath)) {
@@ -28,26 +28,25 @@ const storage = multer.diskStorage({
 // ================= FILE FILTER =================
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
   ];
 
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(null, false);
-    return cb(new Error("Only PDF, DOC, DOCX allowed"));
+    return cb(new Error("Only JPG, PNG, WEBP images allowed"));
   }
 };
 
 // ================= MULTER =================
-const upload = multer({
+export const imageUpload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 2 * 1024 * 1024, // 2MB
   },
 });
-
-export default upload;

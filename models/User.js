@@ -2,30 +2,62 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    name: String,
+    // ================= BASIC INFO =================
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
     email: {
       type: String,
+      required: true,
       unique: true,
+      lowercase: true,
+      trim: true,
     },
 
-    password: String,
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+    },
 
+    // ================= ROLE (IMPORTANT FIX) =================
     role: {
       type: String,
       enum: ["jobseeker", "employer"],
+      default: "jobseeker",
     },
 
-    skills: [String],
+    // ================= PROFILE INFO =================
+    phone: {
+      type: String,
+      default: "",
+    },
 
-    education: String,
+    skills: {
+      type: [String],
+      default: [],
+    },
 
-    experience: String,
+    experience: {
+      type: String,
+      default: "",
+    },
 
-    profilePic: String,
-    
+    education: {
+      type: String,
+      default: "",
+    },
+
+    profilePicture: {
+      type: String,
+      default: "",
+    },
+
+    // ================= PASSWORD RESET =================
     resetPasswordToken: String,
-
     resetPasswordExpire: Date,
   },
   {
@@ -33,7 +65,4 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model(
-  "User",
-  userSchema
-);
+export default mongoose.model("User", userSchema);

@@ -1,58 +1,56 @@
 import express from "express";
 
 import {
-  applyForJob,
+  applyJob,
   getMyApplications,
+  getEmployerApplications,
   getJobApplications,
   updateApplicationStatus,
-  getEmployerApplications,
 } from "../controllers/applicationController.js";
 
-import {
-  protect,
-  jobseekerOnly,
-  employerOnly,
-} from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
+import upload from "../middleware/cloudinaryUpload.js";
 
 const router = express.Router();
 
+
 // ================= APPLY JOB =================
 router.post(
-  "/apply/:jobId",
+  "/apply/:id",
   protect,
-  jobseekerOnly,
-  applyForJob
+  upload.single("resume"),
+  applyJob
 );
 
-// ================= GET MY APPLICATIONS =================
+
+// ================= MY APPLICATIONS =================
 router.get(
-  "/my",
+  "/me",
   protect,
-  jobseekerOnly,
   getMyApplications
 );
 
-// ================= EMPLOYER ALL APPLICATIONS =================
+
+// ================= EMPLOYER APPLICATIONS =================
 router.get(
   "/employer",
   protect,
-  employerOnly,
   getEmployerApplications
 );
 
-// ================= JOB APPLICANTS =================
+
+// ================= JOB WISE APPLICATIONS =================
 router.get(
   "/job/:jobId",
   protect,
-  employerOnly,
   getJobApplications
 );
+
 
 // ================= UPDATE STATUS =================
 router.put(
   "/status/:id",
   protect,
-  employerOnly,
   updateApplicationStatus
 );
 

@@ -1,6 +1,9 @@
 import Company from "../models/Company.js";
 import Job from "../models/Job.js";
 
+// ================= ROLE CHECK =================
+const isEmployer = (req) => req.user?.role === "employer";
+
 // ================= CREATE COMPANY =================
 export const createCompany = async (req, res) => {
   try {
@@ -15,7 +18,6 @@ export const createCompany = async (req, res) => {
       foundedYear,
     } = req.body;
 
-    // 🔐 CHECK AUTH
     if (!req.user || !req.user._id) {
       return res.status(401).json({
         success: false,
@@ -23,7 +25,13 @@ export const createCompany = async (req, res) => {
       });
     }
 
-    // ❌ REQUIRED FIELDS CHECK
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can create company",
+      });
+    }
+
     if (!companyName || !description || !location || !industry) {
       return res.status(400).json({
         success: false,
@@ -31,19 +39,17 @@ export const createCompany = async (req, res) => {
       });
     }
 
-    // 🔍 DUPLICATE CHECK
-    const existing = await Company.findOne({
+    const existingCompany = await Company.findOne({
       companyName: { $regex: `^${companyName}$`, $options: "i" },
     });
 
-    if (existing) {
+    if (existingCompany) {
       return res.status(400).json({
         success: false,
         message: "Company already exists",
       });
     }
 
-    // 🆕 CREATE COMPANY
     const company = await Company.create({
       companyName,
       description,
@@ -63,6 +69,8 @@ export const createCompany = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("CREATE COMPANY ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -87,6 +95,8 @@ export const getCompanies = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("GET COMPANIES ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -94,7 +104,7 @@ export const getCompanies = async (req, res) => {
   }
 };
 
-// ================= GET SINGLE COMPANY =================
+// ================= GET SINGLE COMPANY (FIXED) =================
 export const getCompanyById = async (req, res) => {
   try {
     const company = await Company.findById(req.params.id)
@@ -107,17 +117,24 @@ export const getCompanyById = async (req, res) => {
       });
     }
 
-    const jobs = await Job.find({
-      company: company._id,
-    }).sort({ createdAt: -1 });
+    const jobs = await Job.find({ company: company._id })
+      .sort({ createdAt: -1 });
+
+    // 🔥 IMPORTANT FIX: attach jobs inside company
+    const companyData = {
+      ...company.toObject(),
+      jobs,
+      jobsCount: jobs.length,
+    };
 
     res.status(200).json({
       success: true,
-      company,
-      jobs,
+      company: companyData,
     });
 
   } catch (error) {
+    console.error("GET COMPANY ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -134,6 +151,13 @@ export const updateCompany = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Company not found",
+      });
+    }
+
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can update company",
       });
     }
 
@@ -161,15 +185,17 @@ export const updateCompany = async (req, res) => {
       }
     });
 
-    const updated = await company.save();
+    const updatedCompany = await company.save();
 
     res.status(200).json({
       success: true,
       message: "Company updated successfully",
-      company: updated,
+      company: updatedCompany,
     });
 
   } catch (error) {
+    console.error("UPDATE COMPANY ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -189,6 +215,13 @@ export const deleteCompany = async (req, res) => {
       });
     }
 
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can delete company",
+      });
+    }
+
     if (company.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -196,7 +229,7 @@ export const deleteCompany = async (req, res) => {
       });
     }
 
-    // delete related jobs
+    // delete all jobs under company
     await Job.deleteMany({ company: company._id });
 
     await company.deleteOne();
@@ -207,6 +240,8 @@ export const deleteCompany = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("DELETE COMPANY ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,
@@ -217,6 +252,13 @@ export const deleteCompany = async (req, res) => {
 // ================= MY COMPANIES =================
 export const getMyCompanies = async (req, res) => {
   try {
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can access this",
+      });
+    }
+
     const companies = await Company.find({
       createdBy: req.user._id,
     }).sort({ createdAt: -1 });
@@ -227,6 +269,8 @@ export const getMyCompanies = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("MY COMPANIES ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,

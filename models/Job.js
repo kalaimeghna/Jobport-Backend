@@ -19,15 +19,40 @@ const jobSchema = new mongoose.Schema(
       default: [],
     },
 
+    skills: {
+      type: [String],
+      default: [],
+    },
+
     location: {
       type: String,
       required: true,
     },
 
-    // KEEP STRING (safe for salary ranges like "3-5 LPA")
     salary: {
       type: String,
       required: true,
+    },
+
+    jobType: {
+      type: String,
+      enum: ["Full-Time", "Part-Time", "Internship", "Contract", "Remote"],
+      default: "Full-Time",
+    },
+
+    experienceLevel: {
+      type: String,
+      default: "",
+    },
+
+    applicationDeadline: {
+      type: Date,
+    },
+
+    status: {
+      type: String,
+      enum: ["Open", "Closed"],
+      default: "Open",
     },
 
     // ================= RELATIONS =================
@@ -43,7 +68,6 @@ const jobSchema = new mongoose.Schema(
       required: true,
     },
   },
-
   {
     timestamps: true,
   }

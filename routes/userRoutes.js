@@ -1,32 +1,28 @@
 import express from "express";
 
 import {
-  registerUser,
-  loginUser,
   getUserProfile,
   updateUserProfile,
+  getUserById,
 } from "../controllers/userController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
-import { imageUpload } from "../middleware/imageUpload.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
-// ================= REGISTER =================
-router.post("/register", registerUser);
-
-// ================= LOGIN =================
-router.post("/login", loginUser);
-
-// ================= GET PROFILE =================
+// ================= GET CURRENT USER PROFILE =================
 router.get("/profile", protect, getUserProfile);
 
-// ================= UPDATE PROFILE =================
+// ================= UPDATE PROFILE (WITH IMAGE UPLOAD) =================
 router.put(
   "/profile",
   protect,
-  imageUpload.single("profilePicture"),
+  upload.single("profilePicture"),
   updateUserProfile
 );
+
+// ================= GET USER BY ID =================
+router.get("/:id", getUserById);
 
 export default router;

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
+    // ================= BASIC INFO =================
     name: {
       type: String,
       required: true,
@@ -19,20 +20,22 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      minlength: 6,
     },
 
+    // ================= ROLE =================
     role: {
       type: String,
-      enum: ["jobseeker", "employer"],
+      enum: ["jobseeker", "employer", "admin"],
       default: "jobseeker",
     },
 
+    // ================= CONTACT =================
     phone: {
       type: String,
       default: "",
     },
 
+    // ================= JOB SEEKER PROFILE =================
     skills: {
       type: [String],
       default: [],
@@ -48,18 +51,41 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    // ✅ FIXED FIELD NAME
-    profilePic: {
+    location: {
       type: String,
       default: "",
     },
 
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
+    headline: {
+      type: String,
+      default: "",
+    },
+
+    // ================= FILES =================
+    profilePicture: {
+      type: String,
+      default: "",
+    },
+
+    resume: {
+      type: String,
+      default: "",
+    },
+
+    // ================= PASSWORD RESET =================
+    resetPasswordToken: {
+      type: String,
+    },
+
+    resetPasswordExpire: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export default mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+
+export default User;

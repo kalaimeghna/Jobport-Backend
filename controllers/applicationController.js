@@ -1,27 +1,33 @@
 import Application from "../models/Application.js";
 import Job from "../models/Job.js";
 
-// ================= APPLY FOR JOB =================
-export const applyForJob = async (req, res) => {
-  try {
-    const jobId = req.params.jobId;
+// ================= ROLE CHECK =================
+const isJobseeker = (req) => req.user?.role === "jobseeker";
+const isEmployer = (req) => req.user?.role === "employer";
 
-    if (!req.user || !req.user._id) {
+
+// ================= APPLY JOB =================
+export const applyJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { coverLetterUrl } = req.body;
+
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    // ❌ ONLY JOBSEEKER CAN APPLY
-    if (req.user.role !== "jobseeker") {
+    if (!isJobseeker(req)) {
       return res.status(403).json({
         success: false,
-        message: "Only jobseekers can apply for jobs",
+        message: "Only jobseekers can apply",
       });
     }
 
-    const job = await Job.findById(jobId);
+    const job = await Job.findById(id);
+
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -29,64 +35,122 @@ export const applyForJob = async (req, res) => {
       });
     }
 
+    if (job.createdBy.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot apply to your own job",
+      });
+    }
+
     const alreadyApplied = await Application.findOne({
-      job: jobId,
-      user: req.user._id,
+      job: id,
+      applicant: req.user._id,
     });
 
     if (alreadyApplied) {
       return res.status(400).json({
         success: false,
-        message: "Already applied",
+        message: "Already applied for this job",
       });
     }
 
+    const resumeUrl = req.file?.path || "";
+
     const application = await Application.create({
-      job: jobId,
-      user: req.user._id,
-      status: "pending",
+      job: id,
+      applicant: req.user._id,
+      resumeUrl,
+      coverLetterUrl: coverLetterUrl || "",
+      status: "applied",
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Applied successfully",
       application,
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
 
-// ================= GET MY APPLICATIONS =================
+
+// ================= MY APPLICATIONS =================
 export const getMyApplications = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     const applications = await Application.find({
-      user: req.user._id,
+      applicant: req.user._id,
     })
-      .populate("job")
+      .populate({
+        path: "job",
+        select: "title location salary createdBy",
+      })
+      .populate("applicant", "name email phone skills experience education")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       applications,
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
 
-// ================= GET JOB APPLICATIONS (EMPLOYER) =================
+
+// ================= EMPLOYER APPLICATIONS =================
+export const getEmployerApplications = async (req, res) => {
+  try {
+    if (!req.user || !isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Employer only",
+      });
+    }
+
+    const jobs = await Job.find({ createdBy: req.user._id });
+    const jobIds = jobs.map((job) => job._id);
+
+    const applications = await Application.find({
+      job: { $in: jobIds },
+    })
+      .populate("job", "title location salary")
+      .populate("applicant", "name email phone skills")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      applications,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// ================= JOB WISE APPLICATIONS =================
 export const getJobApplications = async (req, res) => {
   try {
-    const jobId = req.params.jobId;
+    const { jobId } = req.params;
 
     const job = await Job.findById(jobId);
 
@@ -97,7 +161,6 @@ export const getJobApplications = async (req, res) => {
       });
     }
 
-    // ❌ ONLY JOB OWNER CAN VIEW
     if (job.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -105,36 +168,34 @@ export const getJobApplications = async (req, res) => {
       });
     }
 
-    const applications = await Application.find({
-      job: jobId,
-    })
-      .populate("user", "name email role")
-      .populate("job")
+    const applications = await Application.find({ job: jobId })
+      .populate("applicant", "name email phone skills experience education")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       applications,
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
 
-// ================= UPDATE APPLICATION STATUS =================
+
+// ================= UPDATE STATUS =================
 export const updateApplicationStatus = async (req, res) => {
   try {
+    const { id } = req.params;
     const { status } = req.body;
-    const applicationId = req.params.id;
 
     const allowedStatuses = [
-      "pending",
+      "applied",
       "interviewed",
-      "accepted",
+      "selected",
       "rejected",
     ];
 
@@ -145,8 +206,7 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    const application = await Application.findById(applicationId)
-      .populate("job");
+    const application = await Application.findById(id).populate("job");
 
     if (!application) {
       return res.status(404).json({
@@ -155,10 +215,8 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    // ❌ ONLY JOB OWNER CAN UPDATE
     if (
-      application.job.createdBy.toString() !==
-      req.user._id.toString()
+      application.job.createdBy.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
         success: false,
@@ -169,48 +227,14 @@ export const updateApplicationStatus = async (req, res) => {
     application.status = status;
     await application.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Status updated successfully",
       application,
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// ================= GET EMPLOYER APPLICATIONS =================
-export const getEmployerApplications = async (req, res) => {
-  try {
-    const employerId = req.user._id;
-
-    const applications = await Application.find()
-      .populate({
-        path: "job",
-        populate: {
-          path: "company",
-        },
-      })
-      .populate("user", "name email role");
-
-    // filter only employer's jobs
-    const filtered = applications.filter(
-      (app) =>
-        app.job &&
-        app.job.createdBy.toString() === employerId.toString()
-    );
-
-    res.status(200).json({
-      success: true,
-      applications: filtered,
-    });
-
-  } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });

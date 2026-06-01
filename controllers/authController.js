@@ -32,6 +32,7 @@ export const registerUser = async (req, res) => {
       education,
     } = req.body;
 
+    // REQUIRED FIELDS CHECK
     if (!name || !email || !password || !role) {
       return res.status(400).json({
         success: false,
@@ -39,6 +40,16 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    // VALID ROLE CHECK (IMPORTANT FIX)
+    const allowedRoles = ["jobseeker", "employer"];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role selected",
+      });
+    }
+
+    // CHECK EXISTING USER
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -48,8 +59,10 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    // HASH PASSWORD
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // CREATE USER
     const user = await User.create({
       name,
       email,
@@ -64,17 +77,18 @@ export const registerUser = async (req, res) => {
       profilePic: "",
     });
 
+    // SAFE USER (NO PASSWORD)
     const safeUser = await User.findById(user._id).select("-password");
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "User registered successfully",
       user: safeUser,
-      token: generateToken(user),
+      token: generateToken(safeUser),
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -113,15 +127,15 @@ export const loginUser = async (req, res) => {
 
     const safeUser = await User.findById(user._id).select("-password");
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Login successful",
       user: safeUser,
-      token: generateToken(user),
+      token: generateToken(safeUser),
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -140,13 +154,13 @@ export const getProfile = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       user,
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -178,21 +192,20 @@ export const updateProfile = async (req, res) => {
     user.experience = req.body.experience || user.experience;
     user.education = req.body.education || user.education;
 
-    // FIXED FIELD NAME
     user.profilePic = req.body.profilePic || user.profilePic;
 
     await user.save();
 
     const updatedUser = await User.findById(user._id).select("-password");
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
       user: updatedUser,
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -239,13 +252,13 @@ export const forgotPassword = async (req, res) => {
       `Reset your password:\n\n${resetUrl}`
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Reset email sent successfully",
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -278,13 +291,13 @@ export const resetPassword = async (req, res) => {
 
     await user.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Password reset successful",
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -305,10 +318,7 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(
-      oldPassword,
-      user.password
-    );
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {
       return res.status(400).json({
@@ -321,13 +331,13 @@ export const changePassword = async (req, res) => {
 
     await user.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Password changed successfully",
     });
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });

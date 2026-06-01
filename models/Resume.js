@@ -17,6 +17,16 @@ const resumeSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
+    fileName: {
+      type: String,
+      default: "",
+    },
+
+    fileType: {
+      type: String,
+      enum: ["pdf", "doc", "docx"],
+    },
   },
   {
     timestamps: true,

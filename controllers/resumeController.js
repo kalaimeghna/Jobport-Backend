@@ -1,18 +1,17 @@
 import Resume from "../models/Resume.js";
-import cloudinary from "../utils/cloudinary.js";
+import cloudinary from "../config/cloudinary.js";
+
 
 // ================= UPLOAD RESUME =================
 export const uploadResume = async (req, res) => {
   try {
-    // AUTH CHECK
-    if (!req.user || !req.user._id) {
+    if (!req.user?._id) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    // FILE CHECK
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -20,7 +19,6 @@ export const uploadResume = async (req, res) => {
       });
     }
 
-    // FILE TYPE VALIDATION
     const allowedTypes = [
       "application/pdf",
       "application/msword",
@@ -30,20 +28,16 @@ export const uploadResume = async (req, res) => {
     if (!allowedTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
         success: false,
-        message: "Only PDF, DOC, DOCX files are allowed",
+        message: "Only PDF, DOC, DOCX allowed",
       });
     }
 
     // UPLOAD TO CLOUDINARY
-    const result = await cloudinary.uploader.upload(
-      req.file.path,
-      {
-        resource_type: "auto",
-        folder: "jobportal/resumes",
-      }
-    );
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "jobportal/resumes",
+      resource_type: "auto",
+    });
 
-    // SAVE IN DATABASE
     const resume = await Resume.create({
       user: req.user._id,
       resumeUrl: result.secure_url,
@@ -64,19 +58,19 @@ export const uploadResume = async (req, res) => {
   }
 };
 
-// ================= GET USER RESUMES =================
-export const getResume = async (req, res) => {
+
+// ================= GET MY RESUMES =================
+export const getMyResumes = async (req, res) => {
   try {
-    if (!req.user || !req.user._id) {
+    if (!req.user?._id) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    const resumes = await Resume.find({
-      user: req.user._id,
-    }).sort({ createdAt: -1 });
+    const resumes = await Resume.find({ user: req.user._id })
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -92,10 +86,11 @@ export const getResume = async (req, res) => {
   }
 };
 
+
 // ================= DELETE RESUME =================
 export const deleteResume = async (req, res) => {
   try {
-    if (!req.user || !req.user._id) {
+    if (!req.user?._id) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
@@ -111,7 +106,6 @@ export const deleteResume = async (req, res) => {
       });
     }
 
-    // AUTHORIZATION CHECK
     if (resume.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,

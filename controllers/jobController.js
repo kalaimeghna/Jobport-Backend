@@ -1,21 +1,24 @@
 import Job from "../models/Job.js";
 import Company from "../models/Company.js";
+import Application from "../models/Application.js";
+import User from "../models/User.js";
+
+// ================= ROLE CHECK =================
+const isEmployer = (req) => req.user?.role === "employer";
 
 // ================= CREATE JOB =================
 export const createJob = async (req, res) => {
   try {
     const { title, description, location, salary, company } = req.body;
 
-    // AUTH CHECK
-    if (!req.user || !req.user._id) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    // 🔥 ROLE CHECK (FIX)
-    if (req.user.role !== "employer") {
+    if (!isEmployer(req)) {
       return res.status(403).json({
         success: false,
         message: "Only employers can create jobs",
@@ -52,7 +55,6 @@ export const createJob = async (req, res) => {
       message: "Job created successfully",
       job,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -66,13 +68,13 @@ export const getJobs = async (req, res) => {
   try {
     const jobs = await Job.find()
       .populate("company", "companyName logo location")
+      .populate("createdBy", "name email role")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       jobs,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -81,12 +83,38 @@ export const getJobs = async (req, res) => {
   }
 };
 
-// ================= GET SINGLE JOB =================
+// ================= GET MY JOBS (EMPLOYER) =================
+export const getMyJobs = async (req, res) => {
+  try {
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can access this",
+      });
+    }
+
+    const jobs = await Job.find({ createdBy: req.user._id })
+      .populate("company", "companyName logo location")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      jobs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= GET JOB BY ID =================
 export const getJobById = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id)
-      .populate("company")
-      .populate("createdBy", "name email");
+      .populate("company", "companyName logo location description website")
+      .populate("createdBy", "name email role");
 
     if (!job) {
       return res.status(404).json({
@@ -99,34 +127,6 @@ export const getJobById = async (req, res) => {
       success: true,
       job,
     });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// ================= MY JOBS =================
-export const getMyJobs = async (req, res) => {
-  try {
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
-    const jobs = await Job.find({ createdBy: req.user._id })
-      .populate("company")
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      jobs,
-    });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -138,6 +138,13 @@ export const getMyJobs = async (req, res) => {
 // ================= UPDATE JOB =================
 export const updateJob = async (req, res) => {
   try {
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can update jobs",
+      });
+    }
+
     const job = await Job.findById(req.params.id);
 
     if (!job) {
@@ -147,35 +154,25 @@ export const updateJob = async (req, res) => {
       });
     }
 
-    if (!req.user || job.createdBy.toString() !== req.user._id.toString()) {
+    if (job.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
       });
     }
 
-    // SAFE UPDATE (REMOVE COMPANY EDIT)
-    const allowedFields = [
-      "title",
-      "description",
-      "location",
-      "salary",
-    ];
+    job.title = req.body.title || job.title;
+    job.description = req.body.description || job.description;
+    job.location = req.body.location || job.location;
+    job.salary = req.body.salary || job.salary;
 
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        job[field] = req.body[field];
-      }
-    });
-
-    const updated = await job.save();
+    const updatedJob = await job.save();
 
     res.status(200).json({
       success: true,
       message: "Job updated successfully",
-      job: updated,
+      job: updatedJob,
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -187,6 +184,13 @@ export const updateJob = async (req, res) => {
 // ================= DELETE JOB =================
 export const deleteJob = async (req, res) => {
   try {
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only employers can delete jobs",
+      });
+    }
+
     const job = await Job.findById(req.params.id);
 
     if (!job) {
@@ -196,7 +200,7 @@ export const deleteJob = async (req, res) => {
       });
     }
 
-    if (!req.user || job.createdBy.toString() !== req.user._id.toString()) {
+    if (job.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
@@ -209,7 +213,6 @@ export const deleteJob = async (req, res) => {
       success: true,
       message: "Job deleted successfully",
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -221,16 +224,71 @@ export const deleteJob = async (req, res) => {
 // ================= RECOMMENDED JOBS =================
 export const getRecommendedJobs = async (req, res) => {
   try {
+    const user = await User.findById(req.user.id);
+
+    const skills = user?.skills || [];
+
     const jobs = await Job.find()
-      .limit(10)
       .populate("company", "companyName logo location")
       .sort({ createdAt: -1 });
 
+    const recommended = jobs.filter((job) =>
+      skills.some((skill) =>
+        job.title.toLowerCase().includes(skill.toLowerCase()) ||
+        job.description.toLowerCase().includes(skill.toLowerCase())
+      )
+    );
+
     res.status(200).json({
       success: true,
-      jobs,
+      jobs: recommended,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ================= EMPLOYER DASHBOARD =================
+export const getEmployerJobs = async (req, res) => {
+  try {
+    if (!isEmployer(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const jobs = await Job.find({ createdBy: req.user._id });
+
+    const jobIds = jobs.map((j) => j._id);
+
+    const applications = await Application.aggregate([
+      { $match: { job: { $in: jobIds } } },
+      {
+        $group: {
+          _id: "$job",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const countMap = {};
+    applications.forEach((a) => {
+      countMap[a._id.toString()] = a.count;
     });
 
+    const jobsWithApplicants = jobs.map((job) => ({
+      ...job.toObject(),
+      applicantsCount: countMap[job._id.toString()] || 0,
+    }));
+
+    res.status(200).json({
+      success: true,
+      jobs: jobsWithApplicants,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,

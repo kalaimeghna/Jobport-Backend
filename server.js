@@ -23,13 +23,25 @@ app.use(helmet());
 // ================= BODY PARSER =================
 app.use(express.json());
 
-// ================= CORS CONFIG =================
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true,
-  })
-);
+// ================= CORS SETUP (PASTE HERE) =================
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://jobportal-frontend-g5or.onrender.com"
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
+
+// ================= MIDDLEWARE =================
+app.use(express.json());
 
 // ================= TEST ROUTE =================
 app.get("/", (req, res) => {

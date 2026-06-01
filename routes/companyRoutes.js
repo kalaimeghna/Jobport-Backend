@@ -10,6 +10,7 @@ import {
 } from "../controllers/companyController.js";
 
 import { protect, employerOnly } from "../middleware/authMiddleware.js";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 const router = express.Router();
 
@@ -30,5 +31,11 @@ router.put("/:id", protect, employerOnly, updateCompany);
 
 // ================= DELETE COMPANY =================
 router.delete("/:id", protect, employerOnly, deleteCompany);
+
+router.get("/:id", validateObjectId, getCompanyById);
+
+router.put("/:id", validateObjectId, updateCompany);
+
+router.delete("/:id", validateObjectId, deleteCompany);
 
 export default router;

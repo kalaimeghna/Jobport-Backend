@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const jobSchema = new mongoose.Schema(
   {
-    // ================= JOB BASICS =================
     title: {
       type: String,
       required: true,
@@ -15,13 +14,13 @@ const jobSchema = new mongoose.Schema(
     },
 
     requirements: {
-      type: [String],
-      default: [],
+      type: String,
+      default: "",
     },
 
     skills: {
       type: [String],
-      default: [],
+      index: true,
     },
 
     location: {
@@ -31,7 +30,7 @@ const jobSchema = new mongoose.Schema(
 
     salary: {
       type: String,
-      required: true,
+      default: "",
     },
 
     jobType: {
@@ -42,20 +41,14 @@ const jobSchema = new mongoose.Schema(
 
     experienceLevel: {
       type: String,
-      default: "",
+      enum: ["Fresher", "Junior", "Mid-Level", "Senior", "Lead"],
+      default: "Fresher",
     },
 
     applicationDeadline: {
       type: Date,
     },
 
-    status: {
-      type: String,
-      enum: ["Open", "Closed"],
-      default: "Open",
-    },
-
-    // ================= RELATIONS =================
     company: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
@@ -66,6 +59,12 @@ const jobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true,
     },
   },
   {

@@ -13,17 +13,17 @@ import { protect, employerOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ================= PUBLIC ROUTES =================
+// PUBLIC
 router.get("/", getJobs);
 router.get("/:id", getJobById);
 
-// ================= PROTECTED ROUTES =================
-router.get("/recommended", protect, getRecommendedJobs);
-
-router.get("/my-jobs", protect, employerOnly, getMyJobs);
-
+// PROTECTED
+router.get("/my", protect, employerOnly, getMyJobs);
 router.post("/", protect, employerOnly, createJob);
 router.put("/:id", protect, employerOnly, updateJob);
 router.delete("/:id", protect, employerOnly, deleteJob);
+
+// RECOMMENDED (jobseeker)
+router.get("/recommended", protect, getRecommendedJobs);
 
 export default router;

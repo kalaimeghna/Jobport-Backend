@@ -5,12 +5,9 @@ import Job from "../models/Job.js";
 const isJobseeker = (req) => req.user?.role === "jobseeker";
 const isEmployer = (req) => req.user?.role === "employer";
 
-
 // ================= APPLY JOB =================
 export const applyJob = async (req, res) => {
   try {
-    const { jobId } = req.params;
-
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -25,6 +22,8 @@ export const applyJob = async (req, res) => {
       });
     }
 
+    const { jobId } = req.params;
+
     const job = await Job.findById(jobId);
 
     if (!job) {
@@ -34,8 +33,8 @@ export const applyJob = async (req, res) => {
       });
     }
 
-    // prevent applying own job
-    if (job.createdBy?.toString() === req.user._id.toString()) {
+    // prevent applying to own job
+    if (job.createdBy?.toString() === req.user?._id?.toString()) {
       return res.status(400).json({
         success: false,
         message: "You cannot apply to your own job",
@@ -58,7 +57,7 @@ export const applyJob = async (req, res) => {
     const application = await Application.create({
       job: jobId,
       applicant: req.user._id,
-      resumeUrl: req.file?.path || "",
+      resumeUrl: req.file ? req.file.path : null,
       coverLetterUrl: req.body.coverLetterUrl || "",
       status: "pending",
     });
@@ -68,7 +67,6 @@ export const applyJob = async (req, res) => {
       message: "Application submitted successfully",
       application,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -76,7 +74,6 @@ export const applyJob = async (req, res) => {
     });
   }
 };
-
 
 // ================= MY APPLICATIONS =================
 export const getMyApplications = async (req, res) => {
@@ -102,7 +99,6 @@ export const getMyApplications = async (req, res) => {
       success: true,
       applications,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -110,7 +106,6 @@ export const getMyApplications = async (req, res) => {
     });
   }
 };
-
 
 // ================= EMPLOYER APPLICATIONS =================
 export const getEmployerApplications = async (req, res) => {
@@ -122,22 +117,21 @@ export const getEmployerApplications = async (req, res) => {
       });
     }
 
-    const applications = await Application.find()
-      .populate({
-        path: "job",
-        match: { createdBy: req.user._id },
-        select: "title location salary createdBy",
-      })
+    // BETTER APPROACH (optimized)
+    const jobs = await Job.find({ createdBy: req.user._id }).select("_id");
+    const jobIds = jobs.map((job) => job._id);
+
+    const applications = await Application.find({
+      job: { $in: jobIds },
+    })
+      .populate("job", "title location salary createdBy")
       .populate("applicant", "name email phone skills experience education")
       .sort({ createdAt: -1 });
 
-    const filtered = applications.filter(app => app.job !== null);
-
     return res.status(200).json({
       success: true,
-      applications: filtered,
+      applications,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -146,10 +140,16 @@ export const getEmployerApplications = async (req, res) => {
   }
 };
 
-
 // ================= JOB WISE APPLICATIONS =================
 export const getJobApplications = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     const { jobId } = req.params;
 
     const job = await Job.findById(jobId);
@@ -161,7 +161,7 @@ export const getJobApplications = async (req, res) => {
       });
     }
 
-    if (job.createdBy?.toString() !== req.user._id.toString()) {
+    if (job.createdBy?.toString() !== req.user?._id?.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
@@ -176,7 +176,6 @@ export const getJobApplications = async (req, res) => {
       success: true,
       applications,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -185,12 +184,25 @@ export const getJobApplications = async (req, res) => {
   }
 };
 
-
 // ================= UPDATE STATUS (ATS FLOW) =================
 export const updateApplicationStatus = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     const { applicationId } = req.params;
     const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+      });
+    }
 
     const allowedStatuses = [
       "pending",
@@ -207,7 +219,9 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    const application = await Application.findById(applicationId).populate("job");
+    const application = await Application.findById(applicationId).populate(
+      "job"
+    );
 
     if (!application) {
       return res.status(404).json({
@@ -217,7 +231,7 @@ export const updateApplicationStatus = async (req, res) => {
     }
 
     if (
-      application.job.createdBy?.toString() !== req.user._id.toString()
+      application.job.createdBy?.toString() !== req.user?._id?.toString()
     ) {
       return res.status(403).json({
         success: false,
@@ -233,7 +247,6 @@ export const updateApplicationStatus = async (req, res) => {
       message: "Status updated successfully",
       application,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,

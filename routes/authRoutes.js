@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 
 import {
   registerUser,
@@ -14,25 +15,25 @@ import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// ================= RATE LIMITER =================
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+});
+
 // ================= REGISTER =================
-router.post("/register", registerUser);
+router.post("/register", authLimiter, registerUser);
 
 // ================= LOGIN =================
-router.post("/login", loginUser);
+router.post("/login", authLimiter, loginUser);
 
-// ================= GET PROFILE =================
+// ================= PROFILE =================
 router.get("/profile", protect, getProfile);
-
-// ================= UPDATE PROFILE =================
 router.put("/profile", protect, updateProfile);
 
-// ================= FORGOT PASSWORD =================
-router.post("/forgot-password", forgotPassword);
-
-// ================= RESET PASSWORD =================
+// ================= PASSWORD MANAGEMENT =================
+router.post("/forgot-password", authLimiter, forgotPassword);
 router.post("/reset-password/:token", resetPassword);
-
-// ================= CHANGE PASSWORD =================
-router.put("/change-password", protect, changePassword);
+router.post("/change-password", protect, changePassword);
 
 export default router;

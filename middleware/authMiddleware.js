@@ -1,46 +1,37 @@
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import User from "../models/User.js";
 
-/**
- * ================= PROTECT ROUTE =================
- * Verifies JWT token and attaches user to req.user
- */
+// ================= AUTH PROTECT =================
 export const protect = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    let token;
 
-    // ❌ No token provided
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "No token provided",
+        message: "Not authorized, no token",
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // ❌ Verify token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid or expired token",
-      });
-    }
+    const userId = decoded.id || decoded.userId;
 
-    // ================= GET USER ID =================
-    const userId = decoded.id || decoded._id || decoded.userId;
-
-    if (!userId) {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({
         success: false,
         message: "Invalid token payload",
       });
     }
 
-    // ================= FIND USER =================
     const user = await User.findById(userId).select("-password");
 
     if (!user) {
@@ -50,85 +41,40 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // ================= ATTACH USER =================
-    // IMPORTANT: normalize id so you can safely use req.user.id everywhere
-    req.user = {
-      id: user._id,
-      role: user.role,
-      email: user.email,
-      name: user.name,
-    };
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error("AUTH ERROR:", error.message);
+
+    return res.status(401).json({
+      success: false,
+      message: "Not authorized, token failed",
+    });
+  }
+};
+
+// ================= EMPLOYER ONLY =================
+export const employerOnly = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    if (req.user.role !== "employer") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: Employers only",
+      });
+    }
 
     next();
   } catch (error) {
-    console.error("AUTH ERROR:", error);
-
     return res.status(500).json({
       success: false,
-      message: "Server error in authentication",
+      message: "Role verification failed",
     });
   }
-};
-
-/**
- * ================= EMPLOYER ONLY =================
- */
-export const employerOnly = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized",
-    });
-  }
-
-  if (req.user.role !== "employer") {
-    return res.status(403).json({
-      success: false,
-      message: "Employer access only",
-    });
-  }
-
-  next();
-};
-
-/**
- * ================= JOBSEEKER ONLY =================
- */
-export const jobseekerOnly = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized",
-    });
-  }
-
-  if (req.user.role !== "jobseeker") {
-    return res.status(403).json({
-      success: false,
-      message: "Jobseeker access only",
-    });
-  }
-
-  next();
-};
-
-/**
- * ================= ADMIN ONLY =================
- */
-export const adminOnly = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized",
-    });
-  }
-
-  if (req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access only",
-    });
-  }
-
-  next();
 };

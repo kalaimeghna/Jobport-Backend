@@ -1,24 +1,35 @@
 import Job from "../models/Job.js";
-import Company from "../models/Company.js";
-import Application from "../models/Application.js";
 import User from "../models/User.js";
 
-// ================= ROLE CHECK =================
-const isEmployer = (req) => req.user?.role === "employer";
-
-/**
- * ================= CREATE JOB =================
- */
+// ================= CREATE JOB =================
 export const createJob = async (req, res) => {
   try {
-    if (!isEmployer(req)) {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (req.user.role !== "employer") {
       return res.status(403).json({
         success: false,
         message: "Only employers can create jobs",
       });
     }
 
-    const { title, description, location, salary, company } = req.body;
+    const {
+      title,
+      description,
+      requirements,
+      skills,
+      location,
+      salary,
+      jobType,
+      experienceLevel,
+      applicationDeadline,
+      company,
+    } = req.body;
 
     if (!title || !description || !location || !company) {
       return res.status(400).json({
@@ -30,17 +41,25 @@ export const createJob = async (req, res) => {
     const job = await Job.create({
       title,
       description,
+      requirements,
+      skills,
       location,
       salary,
+      jobType,
+      experienceLevel,
+      applicationDeadline,
       company,
-      postedBy: req.user.id,
+      createdBy: req.user._id,
     });
 
     return res.status(201).json({
       success: true,
+      message: "Job created successfully",
       job,
     });
   } catch (error) {
+    console.error("CREATE JOB ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -48,20 +67,38 @@ export const createJob = async (req, res) => {
   }
 };
 
-/**
- * ================= GET ALL JOBS =================
- */
+// ================= GET ALL JOBS =================
 export const getJobs = async (req, res) => {
   try {
-    const jobs = await Job.find()
-      .populate("company")
-      .populate("postedBy", "name email");
+    const { keyword, location } = req.query;
 
-    return res.json({
+    const query = {};
+
+    if (keyword) {
+      query.$or = [
+        { title: { $regex: keyword, $options: "i" } },
+        { description: { $regex: keyword, $options: "i" } },
+        { skills: { $regex: keyword, $options: "i" } },
+      ];
+    }
+
+    if (location) {
+      query.location = { $regex: location, $options: "i" };
+    }
+
+    const jobs = await Job.find(query)
+      .populate("company", "companyName logo location industry")
+      .populate("createdBy", "name email role")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
       success: true,
+      count: jobs.length,
       jobs,
     });
   } catch (error) {
+    console.error("GET JOBS ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -69,14 +106,15 @@ export const getJobs = async (req, res) => {
   }
 };
 
-/**
- * ================= GET JOB BY ID =================
- */
+// ================= GET JOB BY ID =================
 export const getJobById = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id)
-      .populate("company")
-      .populate("postedBy", "name email");
+      .populate(
+        "company",
+        "companyName logo description location website industry companySize foundedYear"
+      )
+      .populate("createdBy", "name email role");
 
     if (!job) {
       return res.status(404).json({
@@ -85,11 +123,13 @@ export const getJobById = async (req, res) => {
       });
     }
 
-    return res.json({
+    return res.status(200).json({
       success: true,
       job,
     });
   } catch (error) {
+    console.error("GET JOB BY ID ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -97,18 +137,30 @@ export const getJobById = async (req, res) => {
   }
 };
 
-/**
- * ================= GET MY JOBS (EMPLOYER) =================
- */
+// ================= GET MY JOBS =================
 export const getMyJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ postedBy: req.user.id });
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
 
-    return res.json({
+    const jobs = await Job.find({
+      createdBy: req.user._id,
+    })
+      .populate("company", "companyName logo location")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
       success: true,
+      count: jobs.length,
       jobs,
     });
   } catch (error) {
+    console.error("GET MY JOBS ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -116,9 +168,7 @@ export const getMyJobs = async (req, res) => {
   }
 };
 
-/**
- * ================= UPDATE JOB =================
- */
+// ================= UPDATE JOB =================
 export const updateJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -130,25 +180,26 @@ export const updateJob = async (req, res) => {
       });
     }
 
-    // only owner can update
-    if (job.postedBy.toString() !== req.user.id) {
+    if (!req.user || job.createdBy?.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
       });
     }
 
-    const updatedJob = await Job.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+    const updatedJob = await Job.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    }).populate("company", "companyName logo location");
 
-    return res.json({
+    return res.status(200).json({
       success: true,
+      message: "Job updated successfully",
       job: updatedJob,
     });
   } catch (error) {
+    console.error("UPDATE JOB ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -156,9 +207,7 @@ export const updateJob = async (req, res) => {
   }
 };
 
-/**
- * ================= DELETE JOB =================
- */
+// ================= DELETE JOB =================
 export const deleteJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -170,7 +219,7 @@ export const deleteJob = async (req, res) => {
       });
     }
 
-    if (job.postedBy.toString() !== req.user.id) {
+    if (!req.user || job.createdBy?.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
@@ -179,11 +228,13 @@ export const deleteJob = async (req, res) => {
 
     await job.deleteOne();
 
-    return res.json({
+    return res.status(200).json({
       success: true,
-      message: "Job deleted",
+      message: "Job deleted successfully",
     });
   } catch (error) {
+    console.error("DELETE JOB ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -191,78 +242,45 @@ export const deleteJob = async (req, res) => {
   }
 };
 
-/**
- * ================= RECOMMENDED JOBS =================
- * (SAFE VERSION - NO CRASH)
- */
+// ================= RECOMMENDED JOBS =================
 export const getRecommendedJobs = async (req, res) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
-    const userId = req.user.id;
-
-    // Get user profile
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // Simple recommendation logic:
-    // match jobs by skills OR show latest jobs fallback
+    const user = await User.findById(req.user._id);
 
     let jobs = [];
 
-    if (user.skills && user.skills.length > 0) {
-      jobs = await Job.find({
-        $or: user.skills.map((skill) => ({
-          title: { $regex: skill, $options: "i" },
-        })),
-      })
-        .populate("company")
-        .limit(10);
-    }
+    const skills = user?.skills || [];
 
-    // fallback if no matches
-    if (jobs.length === 0) {
-      jobs = await Job.find()
-        .populate("company")
+    if (skills.length > 0) {
+      jobs = await Job.find({
+        $or: [
+          ...skills.map((skill) => ({
+            title: { $regex: skill, $options: "i" },
+          })),
+          ...skills.map((skill) => ({
+            skills: { $regex: skill, $options: "i" },
+          })),
+        ],
+      })
+        .populate("company", "companyName logo location")
         .sort({ createdAt: -1 })
         .limit(10);
     }
 
-    return res.json({
+    if (!jobs.length) {
+      jobs = await Job.find()
+        .populate("company", "companyName logo location")
+        .sort({ createdAt: -1 })
+        .limit(10);
+    }
+
+    return res.status(200).json({
       success: true,
       jobs,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+    console.error("RECOMMENDED JOBS ERROR:", error);
 
-/**
- * ================= EMPLOYER JOBS =================
- */
-export const getEmployerJobs = async (req, res) => {
-  try {
-    const jobs = await Job.find({ postedBy: req.user.id });
-
-    return res.json({
-      success: true,
-      jobs,
-    });
-  } catch (error) {
     return res.status(500).json({
       success: false,
       message: error.message,

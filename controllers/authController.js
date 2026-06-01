@@ -32,7 +32,6 @@ export const registerUser = async (req, res) => {
       education,
     } = req.body;
 
-    // REQUIRED FIELDS CHECK
     if (!name || !email || !password || !role) {
       return res.status(400).json({
         success: false,
@@ -40,8 +39,15 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // VALID ROLE CHECK (IMPORTANT FIX)
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
     const allowedRoles = ["jobseeker", "employer"];
+
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({
         success: false,
@@ -49,7 +55,6 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // CHECK EXISTING USER
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -59,10 +64,8 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // HASH PASSWORD
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // CREATE USER
     const user = await User.create({
       name,
       email,
@@ -70,24 +73,26 @@ export const registerUser = async (req, res) => {
       role,
       phone: phone || "",
       skills: skills
-        ? skills.split(",").map((s) => s.trim())
+        ? Array.isArray(skills)
+          ? skills
+          : skills.split(",").map((s) => s.trim())
         : [],
       experience: experience || "",
       education: education || "",
       profilePic: "",
     });
 
-    // SAFE USER (NO PASSWORD)
     const safeUser = await User.findById(user._id).select("-password");
 
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
       user: safeUser,
-      token: generateToken(safeUser),
+      token: generateToken(user),
     });
-
   } catch (error) {
+    console.error("REGISTER ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -131,10 +136,11 @@ export const loginUser = async (req, res) => {
       success: true,
       message: "Login successful",
       user: safeUser,
-      token: generateToken(safeUser),
+      token: generateToken(user),
     });
-
   } catch (error) {
+    console.error("LOGIN ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -145,7 +151,7 @@ export const loginUser = async (req, res) => {
 // ================= GET PROFILE =================
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    const user = await User.findById(req.user._id).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -158,8 +164,9 @@ export const getProfile = async (req, res) => {
       success: true,
       user,
     });
-
   } catch (error) {
+    console.error("GET PROFILE ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -170,7 +177,7 @@ export const getProfile = async (req, res) => {
 // ================= UPDATE PROFILE =================
 export const updateProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
 
     if (!user) {
       return res.status(404).json({
@@ -179,8 +186,22 @@ export const updateProfile = async (req, res) => {
       });
     }
 
+    if (req.body.email && req.body.email !== user.email) {
+      const emailExists = await User.findOne({
+        email: req.body.email,
+      });
+
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already in use",
+        });
+      }
+
+      user.email = req.body.email;
+    }
+
     user.name = req.body.name || user.name;
-    user.email = req.body.email || user.email;
     user.phone = req.body.phone || user.phone;
 
     if (req.body.skills) {
@@ -191,7 +212,6 @@ export const updateProfile = async (req, res) => {
 
     user.experience = req.body.experience || user.experience;
     user.education = req.body.education || user.education;
-
     user.profilePic = req.body.profilePic || user.profilePic;
 
     await user.save();
@@ -203,8 +223,9 @@ export const updateProfile = async (req, res) => {
       message: "Profile updated successfully",
       user: updatedUser,
     });
-
   } catch (error) {
+    console.error("UPDATE PROFILE ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -216,13 +237,6 @@ export const updateProfile = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email required",
-      });
-    }
 
     const user = await User.findOne({ email });
 
@@ -244,20 +258,22 @@ export const forgotPassword = async (req, res) => {
 
     await user.save();
 
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    const resetUrl =
+      `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
     await sendEmail(
       user.email,
       "Password Reset",
-      `Reset your password:\n\n${resetUrl}`
+      `Reset your password using the link below:\n\n${resetUrl}`
     );
 
     return res.status(200).json({
       success: true,
       message: "Reset email sent successfully",
     });
-
   } catch (error) {
+    console.error("FORGOT PASSWORD ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -268,6 +284,15 @@ export const forgotPassword = async (req, res) => {
 // ================= RESET PASSWORD =================
 export const resetPassword = async (req, res) => {
   try {
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
     const resetPasswordToken = crypto
       .createHash("sha256")
       .update(req.params.token)
@@ -285,7 +310,7 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    user.password = await bcrypt.hash(req.body.password, 10);
+    user.password = await bcrypt.hash(password, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
 
@@ -295,8 +320,9 @@ export const resetPassword = async (req, res) => {
       success: true,
       message: "Password reset successful",
     });
-
   } catch (error) {
+    console.error("RESET PASSWORD ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -309,16 +335,19 @@ export const changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
         success: false,
-        message: "User not found",
+        message: "New password must be at least 6 characters",
       });
     }
 
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    const user = await User.findById(req.user._id);
+
+    const isMatch = await bcrypt.compare(
+      oldPassword,
+      user.password
+    );
 
     if (!isMatch) {
       return res.status(400).json({
@@ -335,8 +364,9 @@ export const changePassword = async (req, res) => {
       success: true,
       message: "Password changed successfully",
     });
-
   } catch (error) {
+    console.error("CHANGE PASSWORD ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,

@@ -16,12 +16,23 @@ import userRoutes from "./routes/userRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 dotenv.config();
-connectDB();
 
 const app = express();
 
-// ================= SECURITY MIDDLEWARE =================
-app.use(helmet());
+// ================= DB CONNECTION =================
+connectDB()
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => {
+    console.error("DB Connection Failed:", err);
+    process.exit(1);
+  });
+
+// ================= SECURITY =================
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 
 // ================= CORS =================
 const allowedOrigins = [
@@ -32,23 +43,30 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow server-to-server or mobile apps
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // For assessment safety (avoid CORS blocking issues in deployment)
-      return callback(null, true);
+      return callback(new Error("CORS blocked this origin: " + origin));
     },
     credentials: true,
   })
 );
 
-// ================= BODY PARSING =================
+// ================= BODY PARSER =================
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// ================= STATIC FILES (IMPORTANT FOR RESUME) =================
+app.use("/uploads", express.static("uploads"));
+
+// ================= REQUEST LOGGER =================
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 // ================= ROUTES =================
 app.use("/api/auth", authRoutes);
@@ -66,8 +84,10 @@ app.get("/", (req, res) => {
   });
 });
 
-// ================= ERROR HANDLING =================
+// ================= 404 HANDLER =================
 app.use(notFound);
+
+// ================= ERROR HANDLER =================
 app.use(errorHandler);
 
 // ================= START SERVER =================

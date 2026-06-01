@@ -9,8 +9,7 @@ const isEmployer = (req) => req.user?.role === "employer";
 // ================= APPLY JOB =================
 export const applyJob = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { coverLetterUrl } = req.body;
+    const { jobId } = req.params;
 
     if (!req.user) {
       return res.status(401).json({
@@ -26,7 +25,7 @@ export const applyJob = async (req, res) => {
       });
     }
 
-    const job = await Job.findById(id);
+    const job = await Job.findById(jobId);
 
     if (!job) {
       return res.status(404).json({
@@ -35,15 +34,17 @@ export const applyJob = async (req, res) => {
       });
     }
 
-    if (job.createdBy.toString() === req.user._id.toString()) {
+    // prevent applying own job
+    if (job.createdBy?.toString() === req.user._id.toString()) {
       return res.status(400).json({
         success: false,
         message: "You cannot apply to your own job",
       });
     }
 
+    // duplicate check
     const alreadyApplied = await Application.findOne({
-      job: id,
+      job: jobId,
       applicant: req.user._id,
     });
 
@@ -54,19 +55,17 @@ export const applyJob = async (req, res) => {
       });
     }
 
-    const resumeUrl = req.file?.path || "";
-
     const application = await Application.create({
-      job: id,
+      job: jobId,
       applicant: req.user._id,
-      resumeUrl,
-      coverLetterUrl: coverLetterUrl || "",
-      status: "applied",
+      resumeUrl: req.file?.path || "",
+      coverLetterUrl: req.body.coverLetterUrl || "",
+      status: "pending",
     });
 
     return res.status(201).json({
       success: true,
-      message: "Applied successfully",
+      message: "Application submitted successfully",
       application,
     });
 
@@ -94,9 +93,9 @@ export const getMyApplications = async (req, res) => {
     })
       .populate({
         path: "job",
-        select: "title location salary createdBy",
+        select: "title location salary description company createdBy",
       })
-      .populate("applicant", "name email phone skills experience education")
+      .populate("applicant", "name email skills experience education")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -123,19 +122,20 @@ export const getEmployerApplications = async (req, res) => {
       });
     }
 
-    const jobs = await Job.find({ createdBy: req.user._id });
-    const jobIds = jobs.map((job) => job._id);
-
-    const applications = await Application.find({
-      job: { $in: jobIds },
-    })
-      .populate("job", "title location salary")
-      .populate("applicant", "name email phone skills")
+    const applications = await Application.find()
+      .populate({
+        path: "job",
+        match: { createdBy: req.user._id },
+        select: "title location salary createdBy",
+      })
+      .populate("applicant", "name email phone skills experience education")
       .sort({ createdAt: -1 });
+
+    const filtered = applications.filter(app => app.job !== null);
 
     return res.status(200).json({
       success: true,
-      applications,
+      applications: filtered,
     });
 
   } catch (error) {
@@ -161,7 +161,7 @@ export const getJobApplications = async (req, res) => {
       });
     }
 
-    if (job.createdBy.toString() !== req.user._id.toString()) {
+    if (job.createdBy?.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
@@ -186,16 +186,17 @@ export const getJobApplications = async (req, res) => {
 };
 
 
-// ================= UPDATE STATUS =================
+// ================= UPDATE STATUS (ATS FLOW) =================
 export const updateApplicationStatus = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { applicationId } = req.params;
     const { status } = req.body;
 
     const allowedStatuses = [
-      "applied",
-      "interviewed",
-      "selected",
+      "pending",
+      "reviewed",
+      "interview",
+      "accepted",
       "rejected",
     ];
 
@@ -206,7 +207,7 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    const application = await Application.findById(id).populate("job");
+    const application = await Application.findById(applicationId).populate("job");
 
     if (!application) {
       return res.status(404).json({
@@ -216,7 +217,7 @@ export const updateApplicationStatus = async (req, res) => {
     }
 
     if (
-      application.job.createdBy.toString() !== req.user._id.toString()
+      application.job.createdBy?.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
         success: false,

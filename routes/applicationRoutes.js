@@ -13,15 +13,13 @@ import upload from "../middleware/cloudinaryUpload.js";
 
 const router = express.Router();
 
-
 // ================= APPLY JOB =================
 router.post(
-  "/apply/:id",
+  "/apply/:jobId",
   protect,
   upload.single("resume"),
   applyJob
 );
-
 
 // ================= MY APPLICATIONS =================
 router.get(
@@ -30,14 +28,12 @@ router.get(
   getMyApplications
 );
 
-
 // ================= EMPLOYER APPLICATIONS =================
 router.get(
   "/employer",
   protect,
   getEmployerApplications
 );
-
 
 // ================= JOB WISE APPLICATIONS =================
 router.get(
@@ -46,10 +42,9 @@ router.get(
   getJobApplications
 );
 
-
-// ================= UPDATE STATUS =================
+// ================= UPDATE STATUS (ATS) =================
 router.put(
-  "/status/:id",
+  "/status/:applicationId",
   protect,
   updateApplicationStatus
 );

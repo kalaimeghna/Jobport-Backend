@@ -1,45 +1,28 @@
 import Resume from "../models/Resume.js";
 import cloudinary from "../config/cloudinary.js";
 
+const getUserId = (req) => req.user?.id || req.user?._id;
 
-// ================= UPLOAD RESUME =================
+// ================= UPLOAD =================
 export const uploadResume = async (req, res) => {
   try {
-    if (!req.user?._id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Please upload a file",
-      });
+      return res.status(400).json({ success: false, message: "No file uploaded" });
     }
 
-    const allowedTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-
-    if (!allowedTypes.includes(req.file.mimetype)) {
-      return res.status(400).json({
-        success: false,
-        message: "Only PDF, DOC, DOCX allowed",
-      });
-    }
-
-    // UPLOAD TO CLOUDINARY
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: "jobportal/resumes",
       resource_type: "auto",
     });
 
     const resume = await Resume.create({
-      user: req.user._id,
+      user: userId,
       resumeUrl: result.secure_url,
       public_id: result.public_id,
     });
@@ -51,85 +34,52 @@ export const uploadResume = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-// ================= GET MY RESUMES =================
+// ================= GET =================
 export const getMyResumes = async (req, res) => {
   try {
-    if (!req.user?._id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
+    const userId = getUserId(req);
 
-    const resumes = await Resume.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
+    const resumes = await Resume.find({ user: userId }).sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
-      count: resumes.length,
       resumes,
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-// ================= DELETE RESUME =================
+// ================= DELETE =================
 export const deleteResume = async (req, res) => {
   try {
-    if (!req.user?._id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
+    const userId = getUserId(req);
 
     const resume = await Resume.findById(req.params.id);
 
     if (!resume) {
-      return res.status(404).json({
-        success: false,
-        message: "Resume not found",
-      });
+      return res.status(404).json({ success: false, message: "Not found" });
     }
 
-    if (resume.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized",
-      });
+    if (resume.user.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: "Not allowed" });
     }
 
-    // DELETE FROM CLOUDINARY
-    await cloudinary.uploader.destroy(resume.public_id, {
-      resource_type: "auto",
-    });
+    await cloudinary.uploader.destroy(resume.public_id);
 
-    // DELETE FROM DB
     await resume.deleteOne();
 
     res.status(200).json({
       success: true,
-      message: "Resume deleted successfully",
+      message: "Deleted successfully",
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };

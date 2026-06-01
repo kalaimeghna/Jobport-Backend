@@ -1,12 +1,15 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-// ================= PROTECT ROUTES =================
+/**
+ * ================= PROTECT ROUTE =================
+ * Verifies JWT token and attaches user to req.user
+ */
 export const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    // ❌ No token
+    // ❌ No token provided
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
@@ -16,27 +19,29 @@ export const protect = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    // ❌ Invalid token
+    // ❌ Verify token
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
+    } catch (error) {
       return res.status(401).json({
         success: false,
         message: "Invalid or expired token",
       });
     }
 
-    // ❌ Token must contain id
-    if (!decoded?.id) {
+    // ================= GET USER ID =================
+    const userId = decoded.id || decoded._id || decoded.userId;
+
+    if (!userId) {
       return res.status(401).json({
         success: false,
         message: "Invalid token payload",
       });
     }
 
-    // Find user
-    const user = await User.findById(decoded.id).select("-password");
+    // ================= FIND USER =================
+    const user = await User.findById(userId).select("-password");
 
     if (!user) {
       return res.status(401).json({
@@ -45,12 +50,18 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
-    req.user = user;
+    // ================= ATTACH USER =================
+    // IMPORTANT: normalize id so you can safely use req.user.id everywhere
+    req.user = {
+      id: user._id,
+      role: user.role,
+      email: user.email,
+      name: user.name,
+    };
 
     next();
   } catch (error) {
-    console.error("AUTH MIDDLEWARE ERROR:", error);
+    console.error("AUTH ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -59,9 +70,9 @@ export const protect = async (req, res, next) => {
   }
 };
 
-// ================= ROLE CHECK HELPERS =================
-
-// Employer only
+/**
+ * ================= EMPLOYER ONLY =================
+ */
 export const employerOnly = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
@@ -80,7 +91,9 @@ export const employerOnly = (req, res, next) => {
   next();
 };
 
-// Jobseeker only
+/**
+ * ================= JOBSEEKER ONLY =================
+ */
 export const jobseekerOnly = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
@@ -99,7 +112,9 @@ export const jobseekerOnly = (req, res, next) => {
   next();
 };
 
-// Admin only (optional future use)
+/**
+ * ================= ADMIN ONLY =================
+ */
 export const adminOnly = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({

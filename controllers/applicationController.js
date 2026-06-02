@@ -254,3 +254,23 @@ export const updateApplicationStatus = async (req, res) => {
     });
   }
 };
+// ================= GET APPLICANTS =================
+export const getApplicants = async (req, res) => {
+  try {
+    const jobId = req.params.id;
+
+    const applications = await Application.find({ job: jobId })
+      .populate("applicant", "name email")
+      .populate("job", "title");
+
+    return res.status(200).json({
+      success: true,
+      applications,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};

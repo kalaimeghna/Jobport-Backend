@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 import User from "../models/User.js";
 
 // ================= AUTH PROTECT =================
@@ -7,6 +6,7 @@ export const protect = async (req, res, next) => {
   try {
     let token;
 
+    // Get token from header
     if (
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer")
@@ -21,18 +21,18 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const userId = decoded.id || decoded.userId;
-
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    if (!decoded?.id) {
       return res.status(401).json({
         success: false,
         message: "Invalid token payload",
       });
     }
 
-    const user = await User.findById(userId).select("-password");
+    // Find user
+    const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
       return res.status(401).json({
@@ -41,7 +41,14 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    req.user = user;
+    // Attach user to request
+    req.user = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+
     next();
   } catch (error) {
     console.error("AUTH ERROR:", error.message);
@@ -67,6 +74,34 @@ export const employerOnly = (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: "Access denied: Employers only",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("EMPLOYER ROLE ERROR:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Role verification failed",
+    });
+  }
+};
+
+// ================= USER ONLY =================
+export const userOnly = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    if (req.user.role !== "user") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: Users only",
       });
     }
 

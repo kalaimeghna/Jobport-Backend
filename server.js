@@ -13,17 +13,18 @@ import resumeRoutes from "./routes/resumeRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 
+
 dotenv.config();
 
 const app = express();
 
-// ================= SECURITY MIDDLEWARE =================
+// ================= SECURITY =================
 app.use(helmet());
 
 // ================= BODY PARSER =================
 app.use(express.json());
 
-// ================= CORS SETUP (PASTE HERE) =================
+// ================= CORS =================
 const allowedOrigins = [
   "http://localhost:5173",
   "https://jobportal-frontend-g5or.onrender.com"
@@ -34,14 +35,11 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      callback(new Error("CORS not allowed"));
     }
   },
   credentials: true
 }));
-
-// ================= MIDDLEWARE =================
-app.use(express.json());
 
 // ================= TEST ROUTE =================
 app.get("/", (req, res) => {
@@ -56,7 +54,8 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/companies", companyRoutes);
 
-// ================= 404 HANDLER =================
+
+// ================= 404 =================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -66,11 +65,11 @@ app.use((req, res) => {
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("Error:", err.message);
+  console.error("Server Error:", err.message);
 
   res.status(500).json({
     success: false,
-    message: "Server Error",
+    message: err.message || "Server Error",
   });
 });
 
@@ -81,8 +80,10 @@ const startServer = async () => {
   try {
     await connectDB();
 
+    console.log("MongoDB Connected ✅");
+
     app.listen(PORT, () => {
-      console.log(`Server running on PORT ${PORT}`);
+      console.log(`Server running on PORT ${PORT} 🚀`);
     });
   } catch (error) {
     console.error("Database connection failed:", error.message);

@@ -27,7 +27,7 @@ app.use(express.json());
 // ================= CORS =================
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://jobportal-frontend-g5or.onrender.com"
+  "https://jobweb-frontend-792y.onrender.com"
 ];
 
 app.use(cors({

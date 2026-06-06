@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Job from "../models/Job.js";
 import User from "../models/User.js";
+import Application from "../models/Application.js";
 
 /* ================= CREATE JOB ================= */
 export const createJob = async (req, res) => {
@@ -61,11 +62,9 @@ export const createJob = async (req, res) => {
     });
   } catch (error) {
     console.error("CREATE JOB ERROR:", error);
-
     return res.status(500).json({
       success: false,
-      message: "Error creating job",
-      error: error.message,
+      message: error.message,
     });
   }
 };
@@ -90,12 +89,11 @@ export const getJobs = async (req, res) => {
   }
 };
 
-/* ================= GET JOB BY ID (SAFE) ================= */
+/* ================= GET JOB BY ID ================= */
 export const getJobById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 🚨 prevent "my" crash
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -120,7 +118,6 @@ export const getJobById = async (req, res) => {
     });
   } catch (error) {
     console.error("GET JOB BY ID ERROR:", error);
-
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -128,7 +125,7 @@ export const getJobById = async (req, res) => {
   }
 };
 
-/* ================= GET MY JOBS (FIXED) ================= */
+/* ================= GET MY JOBS ================= */
 export const getMyJobs = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -150,11 +147,9 @@ export const getMyJobs = async (req, res) => {
     });
   } catch (error) {
     console.error("GET MY JOBS ERROR:", error);
-
     return res.status(500).json({
       success: false,
-      message: "Error fetching employer jobs",
-      error: error.message,
+      message: error.message,
     });
   }
 };
@@ -234,25 +229,51 @@ export const getRecommendedJobs = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
-    const skills = user?.skills || [];
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
-    let jobs = [];
+    const skills = user.skills || [];
+
+    const applications = await Application.find({
+      applicant: req.user._id,
+    }).select("job");
+
+    const appliedJobIds = applications.map((a) => a.job);
+
+    let jobs;
 
     if (skills.length > 0) {
       jobs = await Job.find({
+        _id: { $nin: appliedJobIds },
         $or: skills.map((skill) => ({
           skills: { $regex: skill, $options: "i" },
         })),
-      }).limit(10);
+      })
+        .populate("company", "companyName logo location industry")
+        .populate("createdBy", "name email role")
+        .sort({ createdAt: -1 })
+        .limit(10);
     } else {
-      jobs = await Job.find().limit(10);
+      jobs = await Job.find({
+        _id: { $nin: appliedJobIds },
+      })
+        .populate("company", "companyName logo location industry")
+        .populate("createdBy", "name email role")
+        .sort({ createdAt: -1 })
+        .limit(10);
     }
 
     return res.status(200).json({
       success: true,
+      count: jobs.length,
       jobs,
     });
   } catch (error) {
+    console.error("RECOMMENDED JOBS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: error.message,

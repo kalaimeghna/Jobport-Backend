@@ -2,17 +2,17 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
+import path from "path";
 
 import connectDB from "./config/db.js";
 
-// Routes
+// ================= ROUTES =================
 import authRoutes from "./routes/authRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-
 
 dotenv.config();
 
@@ -27,23 +27,34 @@ app.use(express.json());
 // ================= CORS =================
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://jobweb-frontend-792y.onrender.com"
+  "https://jobweb-frontend-792y.onrender.com",
 ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS not allowed"));
-    }
-  },
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed"));
+      }
+    },
+    credentials: true,
+  })
+);
 
-// ================= TEST ROUTE =================
+// ================= STATIC FILES (UPLOADS FIX) =================
+app.use(
+  "/uploads",
+  express.static(path.join(process.cwd(), "uploads"))
+);
+
+// ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
-  res.send("API Running 🚀");
+  res.json({
+    success: true,
+    message: "API Running 🚀",
+  });
 });
 
 // ================= ROUTES =================
@@ -54,8 +65,7 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/resume", resumeRoutes);
 app.use("/api/companies", companyRoutes);
 
-
-// ================= 404 =================
+// ================= 404 HANDLER =================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -63,9 +73,9 @@ app.use((req, res) => {
   });
 });
 
-// ================= ERROR HANDLER =================
+// ================= GLOBAL ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("Server Error:", err.message);
+  console.error("❌ Server Error:", err);
 
   res.status(500).json({
     success: false,
@@ -80,13 +90,13 @@ const startServer = async () => {
   try {
     await connectDB();
 
-    console.log("MongoDB Connected ✅");
+    console.log("✅ MongoDB Connected");
 
     app.listen(PORT, () => {
-      console.log(`Server running on PORT ${PORT} 🚀`);
+      console.log(`🚀 Server running on PORT ${PORT}`);
     });
   } catch (error) {
-    console.error("Database connection failed:", error.message);
+    console.error("❌ DB Connection Failed:", error.message);
     process.exit(1);
   }
 };

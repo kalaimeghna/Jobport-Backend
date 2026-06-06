@@ -38,33 +38,68 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
+    // ================= COMMON FIELDS =================
     user.name = req.body.name || user.name;
     user.phone = req.body.phone || user.phone;
+    user.location = req.body.location || user.location;
+
+    // ================= JOB SEEKER PROFILE =================
+    user.headline = req.body.headline || user.headline;
     user.experience = req.body.experience || user.experience;
     user.education = req.body.education || user.education;
 
-    // Skills from frontend are sent as JSON string
     if (req.body.skills) {
       try {
         user.skills = JSON.parse(req.body.skills);
       } catch {
         user.skills = req.body.skills
           .split(",")
-          .map((skill) => skill.trim());
+          .map((skill) => skill.trim())
+          .filter(Boolean);
       }
     }
 
-    // Profile Image Upload
+    if (req.body.resume) {
+      user.resume = req.body.resume;
+    }
+
+    // ================= EMPLOYER PROFILE =================
+    user.companyName =
+      req.body.companyName || user.companyName;
+
+    user.companyDescription =
+      req.body.companyDescription ||
+      user.companyDescription;
+
+    user.companyLogo =
+      req.body.companyLogo || user.companyLogo;
+
+    user.companyLocation =
+      req.body.companyLocation ||
+      user.companyLocation;
+
+    user.companyWebsite =
+      req.body.companyWebsite ||
+      user.companyWebsite;
+
+    user.industry =
+      req.body.industry || user.industry;
+
+    // ================= PROFILE PICTURE =================
     if (req.file) {
       user.profilePicture = `/uploads/${req.file.filename}`;
     }
 
     const updatedUser = await user.save();
 
+    const safeUser = await User.findById(updatedUser._id).select(
+      "-password"
+    );
+
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: updatedUser,
+      user: safeUser,
     });
   } catch (error) {
     console.error("Update Profile Error:", error);
@@ -72,6 +107,7 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
+      error: error.message,
     });
   }
 };
@@ -79,7 +115,9 @@ export const updateUserProfile = async (req, res) => {
 // ================= GET USER BY ID =================
 export const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("-password");
+    const user = await User.findById(req.params.id).select(
+      "-password"
+    );
 
     if (!user) {
       return res.status(404).json({

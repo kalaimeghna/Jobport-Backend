@@ -79,7 +79,7 @@ export const registerUser = async (req, res) => {
         : [],
       experience: experience || "",
       education: education || "",
-      profilePic: "",
+      profilePicture: "",
     });
 
     const safeUser = await User.findById(user._id).select("-password");
@@ -176,61 +176,99 @@ export const getProfile = async (req, res) => {
 
 // ================= UPDATE PROFILE =================
 export const updateProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
+try {
+const user = await User.findById(req.user._id);
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
+```
+if (!user) {
+  return res.status(404).json({
+    success: false,
+    message: "User not found",
+  });
+}
 
-    if (req.body.email && req.body.email !== user.email) {
-      const emailExists = await User.findOne({
-        email: req.body.email,
-      });
+// Email Update
+if (req.body.email && req.body.email !== user.email) {
+  const emailExists = await User.findOne({
+    email: req.body.email,
+  });
 
-      if (emailExists) {
-        return res.status(400).json({
-          success: false,
-          message: "Email already in use",
-        });
-      }
-
-      user.email = req.body.email;
-    }
-
-    user.name = req.body.name || user.name;
-    user.phone = req.body.phone || user.phone;
-
-    if (req.body.skills) {
-      user.skills = Array.isArray(req.body.skills)
-        ? req.body.skills
-        : req.body.skills.split(",").map((s) => s.trim());
-    }
-
-    user.experience = req.body.experience || user.experience;
-    user.education = req.body.education || user.education;
-    user.profilePic = req.body.profilePic || user.profilePic;
-
-    await user.save();
-
-    const updatedUser = await User.findById(user._id).select("-password");
-
-    return res.status(200).json({
-      success: true,
-      message: "Profile updated successfully",
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.error("UPDATE PROFILE ERROR:", error);
-
-    return res.status(500).json({
+  if (emailExists) {
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: "Email already in use",
     });
   }
+
+  user.email = req.body.email;
+}
+
+// Basic Info
+user.name = req.body.name || user.name;
+user.phone = req.body.phone || user.phone;
+user.location = req.body.location || user.location;
+
+// Job Seeker Profile
+user.headline = req.body.headline || user.headline;
+
+if (req.body.skills) {
+  user.skills = Array.isArray(req.body.skills)
+    ? req.body.skills
+    : req.body.skills.split(",").map((s) => s.trim());
+}
+
+user.experience = req.body.experience || user.experience;
+user.education = req.body.education || user.education;
+
+// Profile Picture
+user.profilePicture =
+  req.body.profilePicture || user.profilePicture;
+
+// Employer Profile
+user.companyName =
+  req.body.companyName || user.companyName;
+
+user.companyDescription =
+  req.body.companyDescription ||
+  user.companyDescription;
+
+user.companyLogo =
+  req.body.companyLogo || user.companyLogo;
+
+user.companyLocation =
+  req.body.companyLocation ||
+  user.companyLocation;
+
+user.companyWebsite =
+  req.body.companyWebsite ||
+  user.companyWebsite;
+
+user.industry =
+  req.body.industry || user.industry;
+
+await user.save();
+
+const updatedUser = await User.findById(user._id)
+  .select("-password");
+
+return res.status(200).json({
+  success: true,
+  message: "Profile updated successfully",
+  user: updatedUser,
+});
+```
+
+} catch (error) {
+console.error("UPDATE PROFILE ERROR:", error);
+
+```
+return res.status(500).json({
+  success: false,
+  message: error.message,
+});
+```
+
+}
 };
 
 // ================= FORGOT PASSWORD =================

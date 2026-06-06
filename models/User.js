@@ -35,7 +35,17 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    location: {
+      type: String,
+      default: "",
+    },
+
     // ================= JOB SEEKER PROFILE =================
+    headline: {
+      type: String,
+      default: "",
+    },
+
     skills: {
       type: [String],
       default: [],
@@ -51,16 +61,6 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
-    location: {
-      type: String,
-      default: "",
-    },
-
-    headline: {
-      type: String,
-      default: "",
-    },
-
     // ================= FILES =================
     profilePicture: {
       type: String,
@@ -68,6 +68,37 @@ const userSchema = new mongoose.Schema(
     },
 
     resume: {
+      type: String,
+      default: "",
+    },
+
+    // ================= EMPLOYER PROFILE =================
+    companyName: {
+      type: String,
+      default: "",
+    },
+
+    companyDescription: {
+      type: String,
+      default: "",
+    },
+
+    companyLogo: {
+      type: String,
+      default: "",
+    },
+
+    companyLocation: {
+      type: String,
+      default: "",
+    },
+
+    companyWebsite: {
+      type: String,
+      default: "",
+    },
+
+    industry: {
       type: String,
       default: "",
     },

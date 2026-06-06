@@ -1,24 +1,13 @@
 import Application from "../models/Application.js";
 import Job from "../models/Job.js";
 
-// ================= ROLE CHECK =================
-const isJobseeker = (req) => req.user?.role === "jobseeker";
-const isEmployer = (req) => req.user?.role === "employer";
-
-// ================= APPLY JOB =================
+/* ================= APPLY JOB ================= */
 export const applyJob = async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
-      });
-    }
-
-    if (!isJobseeker(req)) {
-      return res.status(403).json({
-        success: false,
-        message: "Only jobseekers can apply",
       });
     }
 
@@ -34,7 +23,10 @@ export const applyJob = async (req, res) => {
     }
 
     // prevent applying to own job
-    if (job.createdBy?.toString() === req.user?._id?.toString()) {
+    if (
+      job.createdBy &&
+      job.createdBy.toString() === req.user._id.toString()
+    ) {
       return res.status(400).json({
         success: false,
         message: "You cannot apply to your own job",
@@ -54,10 +46,15 @@ export const applyJob = async (req, res) => {
       });
     }
 
+    // ✅ FIX: proper resume URL handling
+    const resumeUrl = req.file
+      ? `${process.env.BACKEND_URL}/uploads/${req.file.filename}`
+      : "";
+
     const application = await Application.create({
       job: jobId,
       applicant: req.user._id,
-      resumeUrl: req.file ? req.file.path : null,
+      resumeUrl,
       coverLetterUrl: req.body.coverLetterUrl || "",
       status: "pending",
     });
@@ -68,6 +65,7 @@ export const applyJob = async (req, res) => {
       application,
     });
   } catch (error) {
+    console.error("APPLY JOB ERROR:", error);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -75,7 +73,7 @@ export const applyJob = async (req, res) => {
   }
 };
 
-// ================= MY APPLICATIONS =================
+/* ================= GET MY APPLICATIONS ================= */
 export const getMyApplications = async (req, res) => {
   try {
     if (!req.user) {
@@ -88,10 +86,7 @@ export const getMyApplications = async (req, res) => {
     const applications = await Application.find({
       applicant: req.user._id,
     })
-      .populate({
-        path: "job",
-        select: "title location salary description company createdBy",
-      })
+      .populate("job", "title location salary description")
       .populate("applicant", "name email skills experience education")
       .sort({ createdAt: -1 });
 
@@ -100,6 +95,7 @@ export const getMyApplications = async (req, res) => {
       applications,
     });
   } catch (error) {
+    console.error("GET MY APPLICATIONS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -107,49 +103,9 @@ export const getMyApplications = async (req, res) => {
   }
 };
 
-// ================= EMPLOYER APPLICATIONS =================
-export const getEmployerApplications = async (req, res) => {
-  try {
-    if (!req.user || !isEmployer(req)) {
-      return res.status(403).json({
-        success: false,
-        message: "Employer only",
-      });
-    }
-
-    // BETTER APPROACH (optimized)
-    const jobs = await Job.find({ createdBy: req.user._id }).select("_id");
-    const jobIds = jobs.map((job) => job._id);
-
-    const applications = await Application.find({
-      job: { $in: jobIds },
-    })
-      .populate("job", "title location salary createdBy")
-      .populate("applicant", "name email phone skills experience education")
-      .sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      applications,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// ================= JOB WISE APPLICATIONS =================
+/* ================= GET JOB APPLICATIONS ================= */
 export const getJobApplications = async (req, res) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
     const { jobId } = req.params;
 
     const job = await Job.findById(jobId);
@@ -161,7 +117,11 @@ export const getJobApplications = async (req, res) => {
       });
     }
 
-    if (job.createdBy?.toString() !== req.user?._id?.toString()) {
+    // only job owner
+    if (
+      !job.createdBy ||
+      job.createdBy.toString() !== req.user._id.toString()
+    ) {
       return res.status(403).json({
         success: false,
         message: "Not authorized",
@@ -177,6 +137,7 @@ export const getJobApplications = async (req, res) => {
       applications,
     });
   } catch (error) {
+    console.error("GET JOB APPLICATIONS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -184,31 +145,16 @@ export const getJobApplications = async (req, res) => {
   }
 };
 
-// ================= UPDATE STATUS (ATS FLOW) =================
+/* ================= UPDATE STATUS ================= */
 export const updateApplicationStatus = async (req, res) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
     const { applicationId } = req.params;
     const { status } = req.body;
 
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: "Status is required",
-      });
-    }
-
     const allowedStatuses = [
       "pending",
-      "reviewed",
       "interview",
-      "accepted",
+      "selected",
       "rejected",
     ];
 
@@ -230,8 +176,10 @@ export const updateApplicationStatus = async (req, res) => {
       });
     }
 
+    // only job owner can update
     if (
-      application.job.createdBy?.toString() !== req.user?._id?.toString()
+      !application.job.createdBy ||
+      application.job.createdBy.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
         success: false,
@@ -248,29 +196,10 @@ export const updateApplicationStatus = async (req, res) => {
       application,
     });
   } catch (error) {
+    console.error("UPDATE STATUS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: error.message,
-    });
-  }
-};
-// ================= GET APPLICANTS =================
-export const getApplicants = async (req, res) => {
-  try {
-    const jobId = req.params.id;
-
-    const applications = await Application.find({ job: jobId })
-      .populate("applicant", "name email")
-      .populate("job", "title");
-
-    return res.status(200).json({
-      success: true,
-      applications,
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
     });
   }
 };

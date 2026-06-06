@@ -12,6 +12,7 @@ import {
 } from "../controllers/authController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ router.post("/login", authLimiter, loginUser);
 
 // ================= PROFILE =================
 router.get("/profile", protect, getProfile);
-router.put("/profile", protect, updateProfile);
+router.put("/profile",protect,upload.single("profilePicture"),updateProfile);
 
 // ================= PASSWORD MANAGEMENT =================
 router.post("/forgot-password", authLimiter, forgotPassword);

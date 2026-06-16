@@ -24,6 +24,7 @@ export const registerUser = async (req, res) => {
     const {
       name,
       email,
+      
       password,
       role,
       phone,

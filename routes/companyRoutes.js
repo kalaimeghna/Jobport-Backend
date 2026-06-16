@@ -1,5 +1,4 @@
 import express from "express";
-
 import {
   createCompany,
   getCompanies,
@@ -15,27 +14,50 @@ import validateObjectId from "../middleware/validateObjectId.js";
 const router = express.Router();
 
 // ================= CREATE COMPANY =================
-router.post("/", protect, employerOnly, createCompany);
+router.post(
+  "/",
+  protect,
+  employerOnly,
+  createCompany
+);
 
 // ================= GET ALL COMPANIES =================
-router.get("/", getCompanies);
+router.get(
+  "/",
+  getCompanies
+);
 
-// ================= MY COMPANIES =================
-router.get("/my", protect, employerOnly, getMyCompanies);
+// ================= GET MY COMPANIES =================
+router.get(
+  "/my",
+  protect,
+  employerOnly,
+  getMyCompanies
+);
 
-// ================= SINGLE COMPANY =================
-router.get("/:id", getCompanyById);
+// ================= GET SINGLE COMPANY =================
+router.get(
+  "/:id",
+  validateObjectId,
+  getCompanyById
+);
 
 // ================= UPDATE COMPANY =================
-router.put("/:id", protect, employerOnly, updateCompany);
+router.put(
+  "/:id",
+  protect,
+  employerOnly,
+  validateObjectId,
+  updateCompany
+);
 
 // ================= DELETE COMPANY =================
-router.delete("/:id", protect, employerOnly, deleteCompany);
-
-router.get("/:id", validateObjectId, getCompanyById);
-
-router.put("/:id", validateObjectId, updateCompany);
-
-router.delete("/:id", validateObjectId, deleteCompany);
+router.delete(
+  "/:id",
+  protect,
+  employerOnly,
+  validateObjectId,
+  deleteCompany
+);
 
 export default router;
